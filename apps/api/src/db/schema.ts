@@ -1,0 +1,137 @@
+import {
+  pgTable, pgMaterializedView, uuid, text, timestamp, doublePrecision, integer, date, jsonb, primaryKey, index, uniqueIndex, pgEnum,
+} from "drizzle-orm/pg-core";
+
+const id = () => uuid("id").primaryKey().defaultRandom();
+const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
+
+export const homeRole = pgEnum("home_role", ["owner", "member"]);
+export const sex = pgEnum("sex", ["male", "female", "unknown"]);
+export const deviceKind = pgEnum("device_kind", ["herpstat", "govee"]);
+export const logType = pgEnum("log_type", ["feeding", "refused", "shed", "poop", "urates", "water", "weight", "cleaning", "note"]);
+
+export const users = pgTable("users", {
+  id: id(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name").notNull(),
+  createdAt: createdAt(),
+});
+
+/** A home is the tenancy boundary: every resource below belongs to exactly one home. */
+export const homes = pgTable("homes", {
+  id: id(),
+  name: text("name").notNull(),
+  /** AES-GCM encrypted Govee API key (see common/crypto.ts). */
+  goveeApiKeyEnc: text("govee_api_key_enc"),
+  /** Email of the Govee account the key belongs to (entered by the user; the API doesn't expose it). */
+  goveeAccountEmail: text("govee_account_email"),
+  goveeLastSyncAt: timestamp("govee_last_sync_at", { withTimezone: true }),
+  goveeLastError: text("govee_last_error"),
+  createdAt: createdAt(),
+});
+
+export const homeMembers = pgTable("home_members", {
+  homeId: uuid("home_id").notNull().references(() => homes.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: homeRole("role").notNull().default("member"),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.homeId, t.userId] })]);
+
+export const snakes = pgTable("snakes", {
+  id: id(),
+  homeId: uuid("home_id").notNull().references(() => homes.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  species: text("species"),
+  morph: text("morph"),
+  sex: sex("sex").notNull().default("unknown"),
+  hatchDate: date("hatch_date"),
+  notes: text("notes"),
+  /** Small JPEG data URL. */
+  photo: text("photo"),
+  /** Each snake is its own enclosure: alert thresholds live on the snake. */
+  minTempF: doublePrecision("min_temp_f"),
+  maxTempF: doublePrecision("max_temp_f"),
+  minHumidity: doublePrecision("min_humidity"),
+  maxHumidity: doublePrecision("max_humidity"),
+  /** User-chosen display order within the home (drag to reorder). */
+  position: integer("position").notNull().default(0),
+  createdAt: createdAt(),
+}, (t) => [index("snakes_home_idx").on(t.homeId)]);
+
+export const snakeLogs = pgTable("snake_logs", {
+  id: id(),
+  snakeId: uuid("snake_id").notNull().references(() => snakes.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  type: logType("type").notNull(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  value: doublePrecision("value"),
+  notes: text("notes"),
+}, (t) => [index("snake_logs_snake_at_idx").on(t.snakeId, t.at)]);
+
+export const devices = pgTable("devices", {
+  id: id(),
+  homeId: uuid("home_id").notNull().references(() => homes.id, { onDelete: "cascade" }),
+  kind: deviceKind("kind").notNull(),
+  name: text("name").notNull(),
+  /** Govee: device MAC/id; Herpstat: MAC once learned from an upload. */
+  externalId: text("external_id"),
+  model: text("model"),
+  /** Herpstat: LAN host polled at /RAWSTATUS (null = push-only). */
+  host: text("host"),
+  firmware: text("firmware"),
+  lastError: text("last_error"),
+  /** Human names per channel, e.g. { output1: "Edom Bask" } from Herpstat outputnickname. */
+  channelLabels: jsonb("channel_labels").$type<Record<string, string>>(),
+  /** Herpstat: secret embedded in the upload URL + used as the device API key. */
+  ingestToken: text("ingest_token").unique(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  index("devices_home_idx").on(t.homeId),
+  uniqueIndex("devices_home_kind_ext_idx").on(t.homeId, t.kind, t.externalId),
+]);
+
+/** Which snakes a device channel serves (many-to-many). */
+export const snakeSensors = pgTable("snake_sensors", {
+  snakeId: uuid("snake_id").notNull().references(() => snakes.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  channel: text("channel").notNull(),
+  /** warm | cold | bask | rhp — which enclosure zone this channel measures. */
+  role: text("role").$type<"warm" | "cold" | "bask" | "rhp">(),
+}, (t) => [
+  primaryKey({ columns: [t.snakeId, t.deviceId, t.channel] }),
+  index("snake_sensors_device_idx").on(t.deviceId, t.channel),
+]);
+
+export const readings = pgTable("readings", {
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  channel: text("channel").notNull(),
+  metric: text("metric").notNull(),
+  value: doublePrecision("value").notNull(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("readings_device_at_idx").on(t.deviceId, t.at)]);
+
+/**
+ * 5-minute averages of readings: a TimescaleDB continuous aggregate created in db/timescale.ts
+ * (drizzle only reads it). Kept indefinitely; raw readings are dropped after READINGS_RETENTION_DAYS.
+ */
+export const readings5m = pgMaterializedView("readings_5m", {
+  deviceId: uuid("device_id").notNull(),
+  channel: text("channel").notNull(),
+  metric: text("metric").notNull(),
+  bucket: timestamp("bucket", { withTimezone: true }).notNull(),
+  avg: doublePrecision("avg").notNull(),
+  min: doublePrecision("min").notNull(),
+  max: doublePrecision("max").notNull(),
+}).existing();
+
+/** Raw Herpstat uploads, kept so the parser can be refined against real payloads. */
+export const rawUploads = pgTable("raw_uploads", {
+  id: id(),
+  deviceId: uuid("device_id").references(() => devices.id, { onDelete: "cascade" }),
+  contentType: text("content_type"),
+  headers: jsonb("headers"),
+  body: text("body").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+});
