@@ -1,0 +1,1 @@
+ALTER TABLE "homes" ADD COLUMN "govee_account_email" text;
