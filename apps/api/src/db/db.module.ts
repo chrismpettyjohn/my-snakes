@@ -7,6 +7,8 @@ import { runMigrations } from "./migrate";
 
 export const DB = Symbol("DB");
 export type Db = PostgresJsDatabase<typeof schema>;
+/** A transaction handle: same query API as Db. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 @Global()
 @Module({

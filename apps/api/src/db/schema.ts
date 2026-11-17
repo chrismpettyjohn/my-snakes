@@ -1,14 +1,16 @@
 import {
   pgTable, pgMaterializedView, uuid, text, timestamp, doublePrecision, integer, date, jsonb, primaryKey, index, uniqueIndex, pgEnum,
 } from "drizzle-orm/pg-core";
+import { DeviceKind, HomeRole, LogEventType, Sex, type SensorRole } from "@snake/shared";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
-export const homeRole = pgEnum("home_role", ["owner", "member"]);
-export const sex = pgEnum("sex", ["male", "female", "unknown"]);
-export const deviceKind = pgEnum("device_kind", ["herpstat", "govee"]);
-export const logType = pgEnum("log_type", ["feeding", "refused", "shed", "poop", "urates", "water", "weight", "cleaning", "note"]);
+// Enum values come from the shared zod schemas so the API contract and DB can't drift apart.
+export const homeRole = pgEnum("home_role", HomeRole.options);
+export const sex = pgEnum("sex", Sex.options);
+export const deviceKind = pgEnum("device_kind", DeviceKind.options);
+export const logType = pgEnum("log_type", LogEventType.options);
 
 export const users = pgTable("users", {
   id: id(),
@@ -97,8 +99,8 @@ export const snakeSensors = pgTable("snake_sensors", {
   snakeId: uuid("snake_id").notNull().references(() => snakes.id, { onDelete: "cascade" }),
   deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
   channel: text("channel").notNull(),
-  /** warm | cold | bask | rhp — which enclosure zone this channel measures. */
-  role: text("role").$type<"warm" | "cold" | "bask" | "rhp">(),
+  /** Which enclosure zone this channel measures. */
+  role: text("role").$type<SensorRole>(),
 }, (t) => [
   primaryKey({ columns: [t.snakeId, t.deviceId, t.channel] }),
   index("snake_sensors_device_idx").on(t.deviceId, t.channel),
