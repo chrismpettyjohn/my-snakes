@@ -184,7 +184,6 @@ button.cell:active:not(:disabled) { opacity: 1; background: var(--fill); }
 .badge.ok { color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
 .badge.bad { color: var(--red); background: color-mix(in srgb, var(--red) 15%, transparent); }
 .field { width: 100%; height: 44px; padding: 0 14px; font: inherit; color: var(--text); background: var(--fill); border: 0; border-radius: 10px; outline: none; }
-.inline-form { display: flex; gap: 10px; margin-top: 12px; }
 details.more > summary { list-style: none; cursor: pointer; }
 details.more > summary::-webkit-details-marker { display: none; }
 details.more > summary .chev { width: 12px; height: 12px; transition: transform .2s; }
@@ -331,16 +330,6 @@ details.section:not([open]) { margin-bottom: 20px; }
 .snake-head:hover .avatar { animation: wiggle .6s ease-in-out; }
 @keyframes wiggle { 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
 
-.unit-ic { font-size: 18px; margin-right: 4px; vertical-align: 4px; }
-.range { position: relative; height: 6px; margin-top: 10px; border-radius: 3px; background: var(--fill); }
-.range-zone { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: color-mix(in srgb, var(--green) 55%, transparent); }
-.range-dot {
-  position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
-  background: var(--surface); border: 3px solid var(--green); box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
-  transition: left .6s cubic-bezier(.2, .8, .2, 1);
-}
-.range.bad .range-dot { border-color: var(--red); }
-.sheet .range { background: var(--fill-2); }
 
 .icon-tile {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: #fff; flex: none;
@@ -365,14 +354,6 @@ details.section:not([open]) { margin-bottom: 20px; }
 }
 @keyframes ping { from { transform: scale(.5); opacity: .8; } to { transform: scale(1.6); opacity: 0; } }
 
-.quick button { background: color-mix(in srgb, var(--c) 14%, var(--surface-2)); }
-.quick button .emoji {
-  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
-  background: var(--c); font-size: 20px; box-shadow: 0 4px 12px color-mix(in srgb, var(--c) 40%, transparent);
-  transition: transform .2s cubic-bezier(.3, 1.6, .5, 1);
-}
-.quick button:hover .emoji { transform: scale(1.08) rotate(-4deg); }
-.quick button.done .emoji { background: var(--green); color: #fff; transform: scale(1.12); }
 .log-ic {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; flex: none; font-size: 15px;
   background: color-mix(in srgb, var(--c) 22%, transparent);
