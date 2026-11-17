@@ -15,7 +15,7 @@ async function call<T>(apiKey: string, path: string, init?: RequestInit): Promis
     headers: { "Govee-API-Key": apiKey, "Content-Type": "application/json", ...init?.headers },
     signal: AbortSignal.timeout(15_000),
   });
-  const json = (await res.json().catch(() => ({}))) as { code?: number; message?: string; msg?: string } & T;
+  const json = ((await res.json().catch(() => null)) ?? {}) as { code?: number; message?: string; msg?: string } & T;
   if (!res.ok || (json.code !== undefined && json.code !== 200)) {
     throw new Error(`Govee ${path}: ${res.status} ${json.message ?? json.msg ?? ""}`.trim());
   }
