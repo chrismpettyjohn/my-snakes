@@ -1,28 +1,25 @@
 import { createSignal, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
+import { createAction } from "../lib/action";
 import { auth, setToken } from "../lib/api";
 import { refetchHomes } from "../lib/home";
 
 export default function Login() {
   const nav = useNavigate();
   const [mode, setMode] = createSignal<"login" | "register">("login");
-  const [error, setError] = createSignal("");
-  const [busy, setBusy] = createSignal(false);
+  const { busy, error, setError, run } = createAction();
   const login = () => mode() === "login";
 
-  async function submit(e: SubmitEvent) {
+  function submit(e: SubmitEvent) {
     e.preventDefault();
     const f = new FormData(e.currentTarget as HTMLFormElement);
-    const email = String(f.get("email")), password = String(f.get("password"));
-    setBusy(true); setError("");
-    try {
-      const r = login() ? await auth.login(email, password) : await auth.register(email, password, String(f.get("displayName")));
+    const email = String(f.get("email")), password = String(f.get("password")), displayName = String(f.get("displayName"));
+    void run(async () => {
+      const r = login() ? await auth.login(email, password) : await auth.register(email, password, displayName);
       setToken(r.token);
       await refetchHomes();
       nav("/");
-    } catch (err) {
-      setError((err as Error).message);
-    } finally { setBusy(false); }
+    });
   }
 
   return (

@@ -421,3 +421,4 @@ details.section:not([open]) { margin-bottom: 20px; }
 .copy-hit { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 0; text-align: left; color: var(--text); font-size: 17px; font-weight: 400; }
 .icon-btn.spin svg { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.cell input.range-input { text-align: right; flex: 0 0 72px; }

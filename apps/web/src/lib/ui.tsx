@@ -1,4 +1,7 @@
 import { createEffect, createSignal, For, Show, type JSX } from "solid-js";
+import { createAction } from "./action";
+import { Icon } from "./icons";
+import { storage } from "./storage";
 
 /** Modal sheet: bottom sheet on phones, centered card on larger screens. */
 export function Sheet(p: { open: boolean; onClose: () => void; title?: string; done?: JSX.Element; closeButton?: boolean; children: JSX.Element }) {
@@ -53,11 +56,8 @@ export function ActionSheet(p: { open: boolean; onClose: () => void; title?: str
 export function Section(p: { title?: JSX.Element; foot?: JSX.Element; collapse?: string; children: JSX.Element }) {
   if (p.collapse) {
     const key = `section:${p.collapse}`;
-    let open = true;
-    try { open = localStorage.getItem(key) !== "closed"; } catch { /* ignore */ }
-    const onToggle = (e: Event) => {
-      try { localStorage.setItem(key, (e.currentTarget as HTMLDetailsElement).open ? "open" : "closed"); } catch { /* ignore */ }
-    };
+    const open = storage.get(key) !== "closed";
+    const onToggle = (e: Event) => storage.set(key, (e.currentTarget as HTMLDetailsElement).open ? "open" : "closed");
     return (
       <details class="section more" open={open} onToggle={onToggle}>
         <summary class="section-title"><span class="section-head">{p.title}</span>{Icon.chevron()}</summary>
@@ -110,24 +110,6 @@ export function CopyCell(p: { label: string; value: string; extra?: JSX.Element 
   );
 }
 
-/* Icons (SF Symbols–style strokes) */
-const svg = (d: JSX.Element) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{d}</svg>
-);
-export const Icon = {
-  snake: () => svg(<><path d="M4 18c0 1.7 1.3 3 3 3h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6a3 3 0 0 0 3-3V5" /><circle cx="18" cy="3.5" r=".6" fill="currentColor" /></>),
-  setup: () => svg(<><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></>),
-  grid: () => svg(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>),
-  rows: () => svg(<><rect x="4" y="4" width="16" height="7" rx="1.5" /><rect x="4" y="13" width="16" height="7" rx="1.5" /></>),
-  dots: () => svg(<>{[5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => <rect x={x - 2} y={y - 2} width="4" height="4" rx="1" />))}</>),
-  clock: () => svg(<><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2.5" /></>),
-  plus: () => svg(<path d="M12 5v14M5 12h14" />),
-  more: () => svg(<><circle cx="5" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="19" cy="12" r="1" fill="currentColor" /></>),
-  chevron: () => <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>,
-  rotate: () => svg(<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>),
-  check: () => <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>,
-};
-
 /** Colored initial avatar; hue is derived from the name so it's stable per person. */
 export function Avatar(p: { name: string; size?: number }) {
   const hue = () => [...p.name].reduce((h, ch) => h + ch.charCodeAt(0) * 37, 0) % 360;
@@ -135,5 +117,29 @@ export function Avatar(p: { name: string; size?: number }) {
     <span class="person" style={{ background: `hsl(${hue()} 70% 60%)`, ...(p.size ? { width: `${p.size}px`, height: `${p.size}px`, "font-size": `${Math.round(p.size * 0.44)}px` } : {}) }}>
       {p.name.slice(0, 1).toUpperCase()}
     </span>
+  );
+}
+
+/** Keyboard activation (Enter / Space) for a non-button element with role="button". */
+export const onActivate = (fn: () => void) => (e: KeyboardEvent) => {
+  if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fn(); }
+};
+
+/** Value of a named field in the submitted form, trimmed. */
+export const formValue = (e: SubmitEvent, name: string) =>
+  String(new FormData(e.currentTarget as HTMLFormElement).get(name) ?? "").trim();
+
+/** A sheet wrapping one form: Done submits it, and a failed submit shows its error in the footer. */
+export function FormSheet(p: { open: boolean; title: string; onClose: () => void; onSubmit: (e: SubmitEvent) => Promise<unknown>; foot?: JSX.Element; children: JSX.Element }) {
+  const { busy, error, setError, run } = createAction();
+  let form!: HTMLFormElement;
+  return (
+    <Sheet open={p.open} title={p.title} onClose={() => { setError(""); p.onClose(); }}
+      done={<button type="button" disabled={busy()} onClick={() => form.requestSubmit()}>Done</button>}>
+      <form ref={form} onSubmit={(e) => { e.preventDefault(); void run(() => p.onSubmit(e)); }}>
+        <Section foot={error() ? <span class="error">{error()}</span> : p.foot}>{p.children}</Section>
+        <button hidden />
+      </form>
+    </Sheet>
   );
 }

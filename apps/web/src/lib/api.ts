@@ -1,32 +1,36 @@
 import { createResource, createSignal } from "solid-js";
-import type { AuthResponse } from "@snake/shared";
+import type { AuthResponse, User } from "@snake/shared";
 import { API_URL } from "../config";
+import { storage } from "./storage";
 
 const TOKEN_KEY = "snake.token";
-const read = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
 
-const [token, setTokenSignal] = createSignal<string | null>(read());
+const [token, setTokenSignal] = createSignal<string | null>(storage.get(TOKEN_KEY));
 export { token };
 
 export function setToken(t: string | null) {
-  try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+  storage.set(TOKEN_KEY, t);
   setTokenSignal(t);
 }
+
+/** Signs out; the router layout redirects to /login once the token is gone. */
+export const logout = () => setToken(null);
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
 export async function api<T = unknown>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const t = token();
   const res = await fetch(`${API_URL}${path}`, {
     method: init.method ?? (init.body ? "POST" : "GET"),
     headers: {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
     },
     body: init.body ? JSON.stringify(init.body) : undefined,
   });
-  if (res.status === 401 && token()) setToken(null);
+  if (res.status === 401 && t) setToken(null);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const m = data?.message;
@@ -35,10 +39,8 @@ export async function api<T = unknown>(path: string, init: { method?: string; bo
   return data as T;
 }
 
-export type Me = AuthResponse["user"];
-
 export const auth = {
-  me: () => api<Me>("/auth/me"),
+  me: () => api<User>("/auth/me"),
   login: (email: string, password: string) => api<AuthResponse>("/auth/login", { body: { email, password } }),
   register: (email: string, password: string, displayName: string) =>
     api<AuthResponse>("/auth/register", { body: { email, password, displayName } }),

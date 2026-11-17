@@ -1,8 +1,10 @@
-import { Show, type JSX } from "solid-js";
+import { Show } from "solid-js";
+import type { LogEventType, Snake } from "@snake/shared";
 import { findSpecies } from "./species";
 
 /* ---------- Snake avatars ---------- */
 interface Palette { body: string; spot: string; bg: string; belly: string; bands?: boolean; dark?: boolean }
+type AvatarProps = { name: string; species?: string | null; morph?: string | null; size?: number; sad?: boolean; class?: string };
 
 /** Keyed by "Species" or "Species/Morph". */
 const BY_SPECIES: Record<string, Palette> = {
@@ -22,15 +24,16 @@ const FALLBACK: Palette[] = [
 ];
 const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
-export function paletteFor(name: string, species?: string | null, morph?: string | null): Palette {
+function paletteFor(name: string, species?: string | null, morph?: string | null): Palette {
   const preset = findSpecies(species);
-  if (!preset) return FALLBACK[hash(name) % FALLBACK.length];
+  const fallback = FALLBACK[hash(name) % FALLBACK.length]!;
+  if (!preset) return fallback;
   const m = preset.morphs.find((x) => x.toLowerCase() === morph?.toLowerCase()) ?? preset.morphs[0];
-  return BY_SPECIES[m ? `${preset.name}/${m}` : preset.name] ?? FALLBACK[hash(name) % FALLBACK.length];
+  return BY_SPECIES[m ? `${preset.name}/${m}` : preset.name] ?? fallback;
 }
 
 /** A cute coiled snake, coloured by species (or by name when the species is unknown). */
-export function SnakeAvatar(p: { name: string; species?: string | null; morph?: string | null; size?: number; sad?: boolean; class?: string }) {
+function SnakeAvatar(p: AvatarProps) {
   const c = () => paletteFor(p.name, p.species, p.morph);
   const coil = "M14 47 C14 37 50 37 50 47 C50 56 20 56 20 47 C20 41 43 41 43 46";
   return (
@@ -61,48 +64,8 @@ export function SnakeAvatar(p: { name: string; species?: string | null; morph?: 
   );
 }
 
-/* ---------- Range gauge ---------- */
-/** Horizontal bar: green comfort zone between min and max, with a dot for the current value. */
-export function RangeBar(p: { value: number; min: number | null; max: number | null }) {
-  const geo = () => {
-    const lo = p.min ?? p.value - 10, hi = p.max ?? p.value + 10;
-    const pad = Math.max((hi - lo) * 0.45, 4);
-    const a = Math.min(lo - pad, p.value - 2), b = Math.max(hi + pad, p.value + 2);
-    const pct = (v: number) => ((v - a) / (b - a)) * 100;
-    const ok = (p.min == null || p.value >= p.min) && (p.max == null || p.value <= p.max);
-    return { z0: pct(lo), z1: pct(hi), at: pct(p.value), ok };
-  };
-  return (
-    <Show when={p.min != null || p.max != null}>
-      <div class={`range ${geo().ok ? "" : "bad"}`}>
-        <span class="range-zone" style={{ left: `${geo().z0}%`, width: `${geo().z1 - geo().z0}%` }} />
-        <span class="range-dot" style={{ left: `${geo().at}%` }} />
-      </div>
-    </Show>
-  );
-}
-
-/* ---------- iOS Settings-style icon tiles ---------- */
-const g = (d: JSX.Element) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{d}</svg>
-);
-export const Glyph = {
-  thermostat: () => g(<><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z" /><path d="M12 9v6" /></>),
-  droplet: () => g(<path d="M12 3.5s-6 6.6-6 10.5a6 6 0 0 0 12 0c0-3.9-6-10.5-6-10.5z" />),
-  cloud: () => g(<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 11.2 3.5 3.5 0 0 0 7 18z" />),
-  people: () => g(<><circle cx="9" cy="8" r="3.2" /><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5" /><circle cx="17" cy="9" r="2.5" /><path d="M16.5 14c2.4.2 4 1.7 4.5 4.5" /></>),
-  house: () => g(<><path d="M4 11 12 4l8 7" /><path d="M6 10v9h12v-9" /></>),
-  plug: () => g(<><path d="M9 3v5M15 3v5" /><path d="M6 8h12v3a6 6 0 0 1-12 0z" /><path d="M12 17v4" /></>),
-  wave: () => g(<><path d="M5 12a7 7 0 0 1 14 0" /><path d="M8.5 12a3.5 3.5 0 0 1 7 0" /><circle cx="12" cy="12" r="1" fill="currentColor" /></>),
-  logout: () => g(<><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M10 8l-4 4 4 4M6 12h9" /></>),
-};
-
-export function IconTile(p: { color: string; children: JSX.Element; size?: "lg" }) {
-  return <span class={`icon-tile ${p.size ?? ""}`} style={{ background: p.color }}>{p.children}</span>;
-}
-
-/* ---------- Care log icons ---------- */
-export const LOG_STYLE: Record<string, { emoji: string; label: string; color: string }> = {
+/* ---------- Care log styles ---------- */
+export const LOG_STYLE: Record<LogEventType, { emoji: string; label: string; color: string }> = {
   feeding: { emoji: "🐭", label: "Fed", color: "#ff9f0a" },
   refused: { emoji: "🙅", label: "Refused", color: "#ff453a" },
   shed: { emoji: "✨", label: "Shed", color: "#bf5af2" },
@@ -148,7 +111,7 @@ export function EmptyScene() {
 }
 
 /** Photo if one was added, otherwise the illustrated avatar. */
-export function SnakePic(p: { s: { name: string; species: string | null; morph: string | null; photo?: string | null }; size?: number; sad?: boolean; class?: string }) {
+export function SnakePic(p: { s: Pick<Snake, "name" | "species" | "morph"> & { photo?: string | null }; size?: number; sad?: boolean; class?: string }) {
   return (
     <Show when={p.s.photo} fallback={<SnakeAvatar name={p.s.name} species={p.s.species} morph={p.s.morph} size={p.size} sad={p.sad} class={p.class} />}>
       <img class={`avatar photo ${p.class ?? ""}`} src={p.s.photo!} alt="" width={p.size ?? 56} height={p.size ?? 56} />

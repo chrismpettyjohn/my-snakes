@@ -1,17 +1,13 @@
 import { A } from "@solidjs/router";
-import { createSignal, onCleanup, Show } from "solid-js";
-import { me, setToken } from "./api";
+import { createSignal, Show } from "solid-js";
+import { logout, me } from "./api";
+import { onDismiss } from "./dismiss";
 import { Avatar } from "./ui";
 
 export function UserMenu() {
   const [open, setOpen] = createSignal(false);
-  let root!: HTMLDivElement;
-
-  const onDoc = (e: MouseEvent) => { if (!root.contains(e.target as Node)) setOpen(false); };
-  const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-  document.addEventListener("mousedown", onDoc);
-  document.addEventListener("keydown", onKey);
-  onCleanup(() => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); });
+  let root: HTMLDivElement | undefined;
+  onDismiss(() => root, () => setOpen(false));
 
   return (
     <Show when={me()}>{(u) => (
@@ -24,7 +20,7 @@ export function UserMenu() {
           <div class="user-dropdown" role="menu">
             <div class="user-head"><span class="title">{u().displayName}</span><span class="detail">{u().email}</span></div>
             <A href="/settings" role="menuitem" onClick={() => setOpen(false)}>Settings</A>
-            <button type="button" role="menuitem" class="danger" onClick={() => { setOpen(false); setToken(null); }}>Log Out</button>
+            <button type="button" role="menuitem" class="danger" onClick={() => { setOpen(false); logout(); }}>Log Out</button>
           </div>
         </Show>
       </div>
