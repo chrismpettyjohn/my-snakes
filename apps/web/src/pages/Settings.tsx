@@ -1,11 +1,11 @@
 import { createResource, createSignal, For, onMount, Show } from "solid-js";
-import { GOVEE_CHANNEL, type Device, type FoundHerpstat, type Member, type SensorRole, type Snake } from "@snake/shared";
+import { GOVEE_CHANNEL, type Device, type FoundHerpstat, type Member, type SensorRole } from "@snake/shared";
 import { createAction } from "../lib/action";
 import { api, logout, me } from "../lib/api";
 import { assignSensor, fetchDevices } from "../lib/device";
 import { ago, plural } from "../lib/format";
 import { currentHome, homeId, homes, isOwner, refetchHomes, selectHome } from "../lib/home";
-import { DeviceTile, Glyph, Icon, IconTile, TILE } from "../lib/icons";
+import { CollectionTile, DeviceTile, Glyph, Icon, IconTile, TILE } from "../lib/icons";
 import { ActionSheet, Avatar, FormSheet, PageHead, Section, formValue, type Action } from "../lib/ui";
 import { ChannelCell } from "../components/setting/ChannelCell";
 import { DeviceHead } from "../components/setting/DeviceHead";
@@ -21,7 +21,6 @@ type SheetId = "manual" | "govee" | "member" | "home" | { ip: Device };
 
 export default function Settings() {
   const [data, { refetch }] = createResource(homeId, fetchDevices);
-  const [snakes] = createResource(homeId, (id) => api<Snake[]>(`/homes/${id}/snakes`));
   const [members, { refetch: refetchMembers }] = createResource(homeId, (id) => api<Member[]>(`/homes/${id}/members`));
   const herpstats = () => data()?.devices.filter((d) => d.kind === "herpstat") ?? [];
   const govees = () => data()?.devices.filter((d) => d.kind === "govee") ?? [];
@@ -38,11 +37,11 @@ export default function Settings() {
   const [scanning, setScanning] = createSignal(false);
   const scan = async () => {
     setScanning(true);
-    try { setFound(await api<FoundHerpstat[]>(`/homes/${homeId()}/devices/herpstat/discover`, { method: "POST" })); }
+    try { setFound(await api<FoundHerpstat[]>("/devices/herpstat/discover", { method: "POST" })); }
     catch { /* scanning is best-effort */ } finally { setScanning(false); }
   };
   onMount(() => { if (isOwner()) void scan(); });
-  const addHerpstat = (name: string, host?: string) => api(`/homes/${homeId()}/devices/herpstat`, { body: { name, host: host || undefined } });
+  const addHerpstat = (name: string, host?: string) => api("/devices/herpstat", { body: { name, host: host || undefined } });
 
   const [sheet, setSheet] = createSignal<SheetId | null>(null);
   const ipSheet = () => { const s = sheet(); return typeof s === "object" && s ? s.ip : undefined; };
@@ -62,9 +61,9 @@ export default function Settings() {
   const goveeMenu = () => setMenu({
     title: "Govee",
     actions: [
-      { label: "Sync Now", run: () => run(() => api(`/homes/${homeId()}/govee/refresh`, { method: "POST" })) },
+      { label: "Sync Now", run: () => run(() => api("/govee/refresh", { method: "POST" })) },
       { label: "Replace API Key", run: () => setSheet("govee") },
-      { label: "Disconnect Govee", danger: true, run: () => confirm("Disconnect Govee?") && run(() => api(`/homes/${homeId()}/govee`, { method: "DELETE" })) },
+      { label: "Disconnect Govee", danger: true, run: () => confirm("Disconnect Govee?") && run(() => api("/govee", { method: "DELETE" })) },
     ],
   });
 
@@ -77,7 +76,7 @@ export default function Settings() {
   };
 
   const Channel = (p: { d: Device; c: Device["channels"][number]; title?: string; detail?: string; menu?: boolean }) => (
-    <ChannelCell d={p.d} c={p.c} snakes={snakes() ?? []} busy={busy()} title={p.title} detail={p.detail}
+    <ChannelCell d={p.d} c={p.c} snakes={data()?.snakes ?? []} busy={busy()} title={p.title} detail={p.detail}
       onMenu={p.menu && isOwner() ? () => deviceMenu(p.d) : undefined}
       onAssign={(snakeId, role: SensorRole | null) => run(() =>
         assignSensor({ deviceId: p.d.id, channel: p.c.channel, snakeIds: snakeId ? [snakeId] : [], role }))} />
@@ -165,7 +164,7 @@ export default function Settings() {
       <Section collapse="setup-collections" title={<span class="st"><IconTile color={TILE.home}>{Glyph.house()}</IconTile>Collections</span>}>
         <For each={homes()}>{(h) => (
           <button class="cell" onClick={() => selectHome(h.id)}>
-            <IconTile color={TILE.home}>{Glyph.house()}</IconTile>
+            <CollectionTile icon={h.icon} color={h.color} />
             <span class="grow">{h.name}</span>
             <Show when={h.id === homeId()}>{Icon.check()}</Show>
           </button>
@@ -198,7 +197,7 @@ export default function Settings() {
       <FormSheet open={sheet() === "govee"} title="Govee" onClose={() => setSheet(null)}
         onSubmit={(e) => {
           const body = { email: formValue(e, "email"), apiKey: formValue(e, "apiKey") };
-          return submit(() => api(`/homes/${homeId()}/govee`, { method: "PUT", body }));
+          return submit(() => api("/govee", { method: "PUT", body }));
         }}
         foot={<>In the Govee Home app: <b>Profile → Settings → Apply for API Key</b>. Sensors appear here after the first sync.</>}>
         <label class="cell"><input name="email" type="email" required placeholder="Govee account email" value={govee()?.email ?? ""} autofocus /></label>

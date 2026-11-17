@@ -8,6 +8,8 @@ import { currentHome, homeId, homes, isOwner, refetchHomes } from "../lib/home";
 import { Icon } from "../lib/icons";
 import { storage, createStoredSignal } from "../lib/storage";
 import { FormSheet, PageHead, Section, Sheet, formValue } from "../lib/ui";
+import { CollectionIconPicker } from "../components/snake/CollectionIconPicker";
+import { CollectionSwitch } from "../components/snake/CollectionSwitch";
 import { createReorder } from "../components/snake/createReorder";
 import { QuickLog } from "../components/snake/QuickLog";
 import { SnakeForm } from "../components/snake/SnakeForm";
@@ -60,13 +62,13 @@ export default function Snakes() {
   const summary = () => {
     const n = status()?.length;
     if (!n) return undefined;
-    return <><span class={`status-dot ${alerting() ? "bad" : ""}`} />{plural(n, "snake")} · {alerting() ? `${alerting()} need${alerting() === 1 ? "s" : ""} attention` : "all good"}</>;
+    return <>{plural(n, "snake")} · {alerting() ? `${alerting()} need${alerting() === 1 ? "s" : ""} attention` : "all good"}</>;
   };
 
   const otherHomes = () => homes()?.filter((h) => h.id !== homeId()) ?? [];
   async function move(snake: Snake, toId: string) {
     const to = otherHomes().find((h) => h.id === toId);
-    if (!to || !confirm(`Move ${snake.name} to ${to.name}? Its sensor links will be removed.`)) return false;
+    if (!to || !confirm(`Move ${snake.name} to ${to.name}?`)) return false;
     await api(`/snakes/${snake.id}/home`, { method: "PUT", body: { homeId: to.id } });
     refresh();
     return true;
@@ -74,10 +76,13 @@ export default function Snakes() {
 
   return (
     <>
-      <PageHead small sub={summary()} title={
-        // Owners rename the collection by clicking its name.
-        <span class={isOwner() ? "renamable" : ""} title={isOwner() ? "Rename collection" : undefined}
-          onClick={() => isOwner() && setRenaming(true)}>{currentHome()?.name ?? "Your snakes"}</span>
+      <PageHead small sub={summary()} lead={<CollectionSwitch />} title={
+        // The tile switches collections; owners rename the collection by clicking its name.
+        <span class="coll-title">
+          <span class={isOwner() ? "renamable" : ""} title={isOwner() ? "Rename collection" : undefined}
+            onClick={() => isOwner() && setRenaming(true)}>{currentHome()?.name ?? "Your snakes"}</span>
+          <Show when={status()?.length}><span class={`status-dot ${alerting() ? "bad" : ""}`} /></Show>
+        </span>
       }>
         <Show when={status()?.length}>
           {/* One button cycles Full → Compact → Mini → Activity; its icon shows the current view. */}
@@ -129,7 +134,7 @@ export default function Snakes() {
       <ZonePicker pick={pick()} onClose={() => setPick(null)} onChange={refresh} />
       <FormSheet open={renaming()} title="Collection" onClose={() => setRenaming(false)}
         onSubmit={async (e) => {
-          await api(`/homes/${homeId()}`, { method: "PUT", body: { name: formValue(e, "name") } });
+          await api(`/homes/${homeId()}`, { method: "PUT", body: { name: formValue(e, "name"), icon: formValue(e, "icon"), color: formValue(e, "color") } });
           await refetchHomes();
           setRenaming(false);
         }}
@@ -154,7 +159,7 @@ export default function Snakes() {
             )}</For>
           </Section>
         }>
-        <label class="cell"><input name="name" required maxLength={80} placeholder="Name" value={currentHome()?.name ?? ""} autofocus /></label>
+        <CollectionIconPicker name={currentHome()?.name} icon={currentHome()?.icon} color={currentHome()?.color} />
       </FormSheet>
       <Sheet open={adding()} onClose={() => setAdding(false)} title="New Snake">
         <SnakeForm onDone={() => { setAdding(false); refresh(); }} />

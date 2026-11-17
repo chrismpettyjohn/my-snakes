@@ -24,7 +24,7 @@ export class HomeController {
   async update(@UserId() userId: string, @Param("homeId") homeId: string,
     @Body(new ZodPipe(UpdateHomeInput)) body: UpdateHomeInput) {
     await this.access.requireOwner(userId, homeId);
-    await this.home.rename(homeId, body.name);
+    await this.home.update(homeId, body);
     return { ok: true };
   }
 

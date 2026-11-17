@@ -18,18 +18,18 @@ export const uploadCredentials = (token: string): UploadCredentials =>
 export class HerpstatService {
   constructor(@Inject(DB) private db: Db, private poller: HerpstatPollerService) {}
 
-  async add(homeId: string, input: CreateHerpstatInput) {
+  async add(ownerId: string, input: CreateHerpstatInput) {
     const token = randomToken();
     const [d] = await this.db.insert(devices)
-      .values({ homeId, kind: "herpstat", name: input.name, host: input.host ?? null, ingestToken: token }).returning();
+      .values({ ownerId, kind: "herpstat", name: input.name, host: input.host ?? null, ingestToken: token }).returning();
     if (d!.host) await this.poller.pollDevice(d!.id);
     return { id: d!.id, ...uploadCredentials(token) };
   }
 
-  /** Scans the API host's LAN for SpyderWeb units not yet added to this home. */
-  async discover(homeId: string): Promise<FoundHerpstat[]> {
+  /** Scans the API host's LAN for SpyderWeb units not yet added by this user. */
+  async discover(ownerId: string): Promise<FoundHerpstat[]> {
     const existing = await this.db.select({ host: devices.host, ext: devices.externalId }).from(devices)
-      .where(and(eq(devices.homeId, homeId), eq(devices.kind, "herpstat")));
+      .where(and(eq(devices.ownerId, ownerId), eq(devices.kind, "herpstat")));
     return (await discoverHerpstats()).filter((f) => !existing.some((e) => e.host === f.host || e.ext === f.mac));
   }
 

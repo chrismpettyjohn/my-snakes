@@ -76,10 +76,14 @@ export function Section(p: { title?: JSX.Element; foot?: JSX.Element; collapse?:
 }
 
 /** Page title row with actions on the right. Without a title, the actions still sit right-aligned. */
-export function PageHead(p: { title?: JSX.Element; small?: boolean; sub?: JSX.Element; children?: JSX.Element }) {
+/** `lead` sits left of the title block and is stretched to its full height (title + sub). */
+export function PageHead(p: { title?: JSX.Element; small?: boolean; sub?: JSX.Element; lead?: JSX.Element; children?: JSX.Element }) {
+  const text = () => <><Show when={p.title}><h1>{p.title}</h1></Show><Show when={p.sub}><p>{p.sub}</p></Show></>;
   return (
     <header class={`page-head ${p.small ? "small" : ""}`}>
-      <div><Show when={p.title}><h1>{p.title}</h1></Show><Show when={p.sub}><p>{p.sub}</p></Show></div>
+      <Show when={p.lead} fallback={<div>{text()}</div>}>
+        <div class="page-head-lead"><span class="lead">{p.lead}</span><div>{text()}</div></div>
+      </Show>
       {p.children}
     </header>
   );

@@ -9,17 +9,15 @@ import { HerpstatService } from "./herpstat.service";
 export class HerpstatController {
   constructor(private access: AccessService, private herpstat: HerpstatService) {}
 
-  @Post("homes/:homeId/devices/herpstat")
-  async add(@UserId() u: string, @Param("homeId") homeId: string,
-    @Body(new ZodPipe(CreateHerpstatInput)) body: CreateHerpstatInput) {
-    await this.access.requireOwner(u, homeId);
-    return this.herpstat.add(homeId, body);
+  /** Herpstats belong to the signed-in user, not a collection. */
+  @Post("devices/herpstat")
+  add(@UserId() u: string, @Body(new ZodPipe(CreateHerpstatInput)) body: CreateHerpstatInput) {
+    return this.herpstat.add(u, body);
   }
 
-  @Post("homes/:homeId/devices/herpstat/discover")
-  async discover(@UserId() u: string, @Param("homeId") homeId: string) {
-    await this.access.requireOwner(u, homeId);
-    return this.herpstat.discover(homeId);
+  @Post("devices/herpstat/discover")
+  discover(@UserId() u: string) {
+    return this.herpstat.discover(u);
   }
 
   @Post("devices/:id/refresh")

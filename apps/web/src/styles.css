@@ -424,3 +424,30 @@ details.section:not([open]) { margin-bottom: 20px; }
 .icon-btn.spin svg { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .cell input.range-input { text-align: right; flex: 0 0 72px; }
+.section-toggle { font-size: 13px; text-transform: none; color: var(--tint); white-space: nowrap; }
+.coll-title { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; }
+.coll-title > .status-dot { flex: none; margin: 0; }
+.coll-title > .renamable { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Small head: 22px title + 2px gap + 16px summary = 40px, so the lead tile matches the two lines. */
+.page-head-lead { display: flex; align-items: center; gap: 10px; }
+.page-head-lead > div { min-width: 0; }
+.page-head-lead > .lead { display: flex; flex: none; }
+.page-head.small h1 { line-height: 22px; }
+.page-head.small p { line-height: 16px; }
+.coll-btn { display: flex; padding: 0; border: 0; border-radius: 9px; background: none; cursor: pointer; }
+.page-head-lead .icon-tile { width: 40px; height: 40px; border-radius: 9px; }
+.page-head-lead .icon-tile svg { width: 22px; height: 22px; }
+.coll-btn:hover .icon-tile { filter: brightness(1.1); }
+.coll-btn:active .icon-tile { transform: scale(0.92); }
+/* Collection icon picker (collection editor). */
+.cell.coll-picker { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px 16px; }
+.coll-swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.coll-swatch { width: 28px; height: 28px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; }
+.coll-swatch.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text-3); }
+.coll-glyphs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 6px; }
+.coll-glyph { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0; border: 0; background: none; cursor: pointer; min-width: 0; }
+.coll-glyph-ic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; background: var(--fill); color: var(--text-2); }
+.coll-glyph-ic svg { width: 24px; height: 24px; }
+.coll-glyph.on .coll-glyph-ic { color: #fff; }
+.coll-glyph-label { max-width: 100%; font-size: 11px; color: var(--text-2); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coll-glyph.on .coll-glyph-label { color: var(--text); font-weight: 600; }

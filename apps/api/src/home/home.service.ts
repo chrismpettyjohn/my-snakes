@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
-import type { Home, Member } from "@snake/shared";
+import type { Home, Member, UpdateHomeInput } from "@snake/shared";
 import { DB, type Db, type Tx } from "../db/db.module";
 import { homeMembers, homes, users } from "../db/schema";
 
@@ -9,7 +9,7 @@ export class HomeService {
   constructor(@Inject(DB) private db: Db) {}
 
   forUser(userId: string): Promise<Home[]> {
-    return this.db.select({ id: homes.id, name: homes.name, role: homeMembers.role })
+    return this.db.select({ id: homes.id, name: homes.name, icon: homes.icon, color: homes.color, role: homeMembers.role })
       .from(homeMembers).innerJoin(homes, eq(homes.id, homeMembers.homeId))
       .where(eq(homeMembers.userId, userId)).orderBy(homes.createdAt);
   }
@@ -19,11 +19,11 @@ export class HomeService {
     if (!tx) return this.db.transaction((t) => this.create(userId, name, t));
     const [h] = await tx.insert(homes).values({ name }).returning();
     await tx.insert(homeMembers).values({ homeId: h!.id, userId, role: "owner" });
-    return { id: h!.id, name: h!.name, role: "owner" };
+    return { id: h!.id, name: h!.name, icon: h!.icon, color: h!.color, role: "owner" };
   }
 
-  async rename(homeId: string, name: string) {
-    await this.db.update(homes).set({ name }).where(eq(homes.id, homeId));
+  async update(homeId: string, input: UpdateHomeInput) {
+    await this.db.update(homes).set(input).where(eq(homes.id, homeId));
   }
 
   members(homeId: string): Promise<Member[]> {

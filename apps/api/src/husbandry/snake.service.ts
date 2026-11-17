@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, sql } from "drizzle-orm";
 import type { UpsertSnakeInput } from "@snake/shared";
 import { DB, type Db } from "../db/db.module";
-import { snakeSensors, snakes } from "../db/schema";
+import { snakes } from "../db/schema";
 
 @Injectable()
 export class SnakeService {
@@ -33,15 +33,12 @@ export class SnakeService {
   }
 
   /**
-   * Moves a snake (with its logs) to the end of another home's list. Its sensor links are dropped,
-   * since those devices belong to the old home.
+   * Moves a snake to the end of another collection's list. Collections only organize snakes: its
+   * logs and sensor links stay with it.
    */
   async move(id: string, homeId: string) {
-    await this.db.transaction(async (tx) => {
-      await tx.delete(snakeSensors).where(eq(snakeSensors.snakeId, id));
-      const position = await this.nextPosition(homeId, tx);
-      await tx.update(snakes).set({ homeId, position }).where(eq(snakes.id, id));
-    });
+    const position = await this.nextPosition(homeId);
+    await this.db.update(snakes).set({ homeId, position }).where(eq(snakes.id, id));
   }
 
   async remove(id: string) {

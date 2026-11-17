@@ -1,4 +1,4 @@
-import { createResource, For, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { ROLE_KIND, ROLE_LABEL, type Device, type DeviceChannel, type SensorRole, type SnakeStatus } from "@snake/shared";
 import { createAction } from "../../lib/action";
@@ -27,6 +27,19 @@ export function ZonePicker(p: { pick: ZonePick | null; onClose: () => void; onCh
     const others = c.snakeIds.filter((id) => id !== p.pick?.s.id).length;
     return others ? `Also used by ${plural(others, "other snake")}` : undefined;
   };
+  /** Channels already feeding another snake are hidden by default; the current pick always shows. */
+  const [showAll, setShowAll] = createSignal(false);
+  createEffect(() => { if (p.pick) setShowAll(false); });
+  const visible = (c: DeviceChannel) => showAll() || isCurrent(c) || !sharedWith(c);
+  const hiddenCount = () => chans().filter(({ c }) => !visible(c)).length;
+  const visibleDevices = () => devices().filter((d) => d.channels.some(visible));
+  const toggle = () => (
+    <Show when={showAll() || hiddenCount()}>
+      <button type="button" class="section-toggle" onClick={() => setShowAll(!showAll())}>
+        {showAll() ? "Hide assigned" : `Show assigned (${hiddenCount()})`}
+      </button>
+    </Show>
+  );
   const assign = (d: Device, c: DeviceChannel, snakeIds: string[], role: SensorRole | null) =>
     assignSensor({ deviceId: d.id, channel: c.channel, snakeIds, role: snakeIds.length ? role : null });
 
@@ -44,6 +57,18 @@ export function ZonePicker(p: { pick: ZonePick | null; onClose: () => void; onCh
     p.onChange(); p.onClose();
   });
 
+  const row = (d: Device, c: DeviceChannel, title: string) => (
+    <button type="button" class={`cell ${isCurrent(c) ? "on" : ""}`} disabled={busy()} onClick={() => choose({ d, c })}
+      style={{ "--c": `var(--zone-${p.pick!.role})` }}>
+      <span class="chan-ic">{herp() ? Glyph.plug() : Glyph.droplet()}</span>
+      <span class="grow">
+        <span class="title">{title}</span>
+        <Show when={sharedWith(c)}>{(t) => <span class="detail">{t()}</span>}</Show>
+      </span>
+      <Show when={isCurrent(c)}>{Icon.check()}</Show>
+    </button>
+  );
+
   return (
     <Sheet open={!!p.pick} onClose={() => { setError(""); p.onClose(); }} title="Sensor">
       <Show when={p.pick}>{(pk) => (
@@ -54,21 +79,21 @@ export function ZonePicker(p: { pick: ZonePick | null; onClose: () => void; onCh
             <p>{pk().s.name}<Show when={devices().length}> · {herp() ? "Choose a Herpstat output" : "Choose a Govee sensor"}</Show></p>
           </div>
 
-          <For each={devices()}>{(d) => (
-            <Section title={<span class="st"><DeviceTile kind={d.kind} />{d.name}</span>}>
-              <For each={d.channels}>{(c) => (
-                <button type="button" class={`cell ${isCurrent(c) ? "on" : ""}`} disabled={busy()} onClick={() => choose({ d, c })}
-                  style={{ "--c": `var(--zone-${pk().role})` }}>
-                  <span class="chan-ic">{herp() ? Glyph.plug() : Glyph.droplet()}</span>
-                  <span class="grow">
-                    <span class="title">{c.label ?? c.channel}</span>
-                    <Show when={sharedWith(c)}>{(t) => <span class="detail">{t()}</span>}</Show>
-                  </span>
-                  <Show when={isCurrent(c)}>{Icon.check()}</Show>
-                </button>
-              )}</For>
-            </Section>
-          )}</For>
+          {/* Herpstat outputs group under their controller; each Govee sensor is a single channel, so list one row per sensor. */}
+          <Show when={herp()} fallback={
+            <Show when={devices().length}>
+              <Section title={<><span class="st"><DeviceTile kind="govee" />Govee</span>{toggle()}</>}>
+                <For each={chans().filter(({ c }) => visible(c))}>{({ d, c }) => row(d, c, d.name)}</For>
+              </Section>
+            </Show>
+          }>
+            <For each={visibleDevices()}>{(d, i) => (
+              <Section title={<><span class="st"><DeviceTile kind={d.kind} />{d.name}</span>{i() === 0 && toggle()}</>}>
+                <For each={d.channels.filter(visible)}>{(c) => row(d, c, c.label ?? c.channel)}</For>
+              </Section>
+            )}</For>
+            <Show when={devices().length && !visibleDevices().length}>{toggle()}</Show>
+          </Show>
 
           <Section foot={error() ? <span class="error">{error()}</span>
             : <>Add or rename devices in <A href="/settings" onClick={p.onClose}>Settings</A>.</>}>

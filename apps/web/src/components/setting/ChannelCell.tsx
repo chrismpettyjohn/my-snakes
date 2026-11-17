@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { ROLE_LABEL, rolesFor, type Device, type DeviceChannel, type SensorRole, type Snake } from "@snake/shared";
+import { ROLE_LABEL, rolesFor, type Device, type DeviceChannel, type LinkableSnake, type SensorRole } from "@snake/shared";
 import { SnakePic } from "../../lib/art";
 import { Icon } from "../../lib/icons";
 
@@ -11,11 +11,13 @@ const optionValue = (snakeId: string, role: SensorRole | null) => `${snakeId}|${
  * chooses "<snake> · <zone>": thermostat outputs drive heat zones, air sensors read ambient ones.
  */
 export function ChannelCell(p: {
-  d: Device; c: DeviceChannel; snakes: Snake[]; busy: boolean;
+  d: Device; c: DeviceChannel; snakes: LinkableSnake[]; busy: boolean;
   onAssign: (snakeId: string | null, role: SensorRole | null) => void;
   title?: string; detail?: string; onMenu?: () => void;
 }) {
   const linked = () => p.snakes.find((s) => s.id === p.c.snakeIds[0]);
+  /** Devices serve every collection, so name the collection once there is more than one. */
+  const multi = () => new Set(p.snakes.map((s) => s.collection)).size > 1;
   return (
     <label class="cell indent">
       <Show when={linked()} fallback={<span class="chan-empty" />}>{(s) => <SnakePic s={s()} size={28} />}</Show>
@@ -31,7 +33,7 @@ export function ChannelCell(p: {
         <option value="">Not linked</option>
         <Show when={linked() && !p.c.role}><option value={optionValue(p.c.snakeIds[0]!, null)}>{linked()!.name} · pick a zone</option></Show>
         <For each={p.snakes}>{(s) => (
-          <optgroup label={s.name}>
+          <optgroup label={multi() ? `${s.name} · ${s.collection}` : s.name}>
             <For each={rolesFor(p.d.kind)}>{(r) => <option value={optionValue(s.id, r)}>{s.name} · {ROLE_LABEL[r]}</option>}</For>
           </optgroup>
         )}</For>

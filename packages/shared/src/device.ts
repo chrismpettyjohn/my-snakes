@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Snake } from "./husbandry";
 
 export const DeviceKind = z.enum(["herpstat", "govee"]);
 export type DeviceKind = z.infer<typeof DeviceKind>;
@@ -76,7 +77,11 @@ export interface GoveeAccount {
   lastError: string | null;
 }
 
-export interface DeviceList { govee: GoveeAccount; devices: Device[] }
+/** A snake the listed devices can be assigned to, with the collection it is in. */
+export type LinkableSnake = Snake & { collection: string };
+
+/** One user's devices. `snakes` spans every collection of theirs the viewer shares. */
+export interface DeviceList { govee: GoveeAccount; devices: Device[]; snakes: LinkableSnake[] }
 
 export interface UploadCredentials { uploadUrl: string; apiKey: string }
 

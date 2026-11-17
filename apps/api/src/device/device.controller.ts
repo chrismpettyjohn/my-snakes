@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Put, Query } from "@nestjs/common";
 import { AssignSensorInput, UpdateDeviceInput } from "@snake/shared";
 import { UserId } from "../auth/auth.guard";
 import { AccessService } from "../common/access.service";
@@ -12,13 +12,14 @@ export class DeviceController {
 
   @Get("homes/:homeId/devices")
   async list(@UserId() u: string, @Param("homeId") homeId: string) {
-    return this.device.list(homeId, await this.access.role(u, homeId));
+    await this.access.role(u, homeId);
+    return this.device.list(await this.access.homeOwner(homeId), u);
   }
 
   @Put("devices/:id")
   async update(@UserId() u: string, @Param("id") id: string, @Body(new ZodPipe(UpdateDeviceInput)) body: UpdateDeviceInput) {
     const d = await this.access.device(u, id);
-    if (body.host !== undefined) await this.access.requireOwner(u, d.homeId);
+    if (body.host !== undefined && d.ownerId !== u) throw new ForbiddenException("Owner only");
     await this.device.update(d, body);
     return { ok: true };
   }
@@ -32,7 +33,7 @@ export class DeviceController {
 
   @Put("sensor-assignments")
   async assign(@UserId() u: string, @Body(new ZodPipe(AssignSensorInput)) body: AssignSensorInput) {
-    await this.device.assign(await this.access.device(u, body.deviceId), body);
+    await this.device.assign(await this.access.device(u, body.deviceId), body, u);
     return { ok: true };
   }
 

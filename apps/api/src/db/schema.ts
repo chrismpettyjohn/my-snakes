@@ -1,7 +1,7 @@
 import {
   pgTable, pgMaterializedView, uuid, text, timestamp, doublePrecision, integer, date, jsonb, primaryKey, index, uniqueIndex, pgEnum,
 } from "drizzle-orm/pg-core";
-import { DeviceKind, HomeRole, LogEventType, Sex, type SensorRole } from "@snake/shared";
+import { CollectionColor, CollectionIcon, DeviceKind, HomeRole, LogEventType, Sex, type SensorRole } from "@snake/shared";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -17,19 +17,24 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
-  createdAt: createdAt(),
-});
-
-/** A home is the tenancy boundary: every resource below belongs to exactly one home. */
-export const homes = pgTable("homes", {
-  id: id(),
-  name: text("name").notNull(),
-  /** AES-GCM encrypted Govee API key (see common/crypto.ts). */
+  /** AES-GCM encrypted Govee API key (see common/crypto.ts). Devices belong to the user, not a collection. */
   goveeApiKeyEnc: text("govee_api_key_enc"),
   /** Email of the Govee account the key belongs to (entered by the user; the API doesn't expose it). */
   goveeAccountEmail: text("govee_account_email"),
   goveeLastSyncAt: timestamp("govee_last_sync_at", { withTimezone: true }),
   goveeLastError: text("govee_last_error"),
+  createdAt: createdAt(),
+});
+
+/**
+ * A home ("collection" in the UI) organizes snakes and is the unit of sharing. Devices are not in a
+ * collection: they belong to a user and can feed snakes in any of that user's collections.
+ */
+export const homes = pgTable("homes", {
+  id: id(),
+  name: text("name").notNull(),
+  icon: text("icon").$type<CollectionIcon>().notNull().default("house"),
+  color: text("color").$type<CollectionColor>().notNull().default("indigo"),
   createdAt: createdAt(),
 });
 
@@ -73,7 +78,7 @@ export const snakeLogs = pgTable("snake_logs", {
 
 export const devices = pgTable("devices", {
   id: id(),
-  homeId: uuid("home_id").notNull().references(() => homes.id, { onDelete: "cascade" }),
+  ownerId: uuid("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   kind: deviceKind("kind").notNull(),
   name: text("name").notNull(),
   /** Govee: device MAC/id; Herpstat: MAC once learned from an upload. */
@@ -90,8 +95,8 @@ export const devices = pgTable("devices", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [
-  index("devices_home_idx").on(t.homeId),
-  uniqueIndex("devices_home_kind_ext_idx").on(t.homeId, t.kind, t.externalId),
+  index("devices_owner_idx").on(t.ownerId),
+  uniqueIndex("devices_owner_kind_ext_idx").on(t.ownerId, t.kind, t.externalId),
 ]);
 
 /** Which snakes a device channel serves (many-to-many). */
