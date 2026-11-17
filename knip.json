@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreBinaries": ["pm2"],
+  "drizzle": false,
+  "workspaces": {
+    "apps/api": {"entry": ["drizzle.config.ts"], "project": ["src/**/*.ts"]},
+    "apps/web": {"project": ["src/**/*.{ts,tsx}"]},
+    "packages/shared": {"project": ["src/**/*.ts"]}
+  }
+}

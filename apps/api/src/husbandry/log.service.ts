@@ -1,12 +1,11 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { desc, eq } from "drizzle-orm";
-import type { CreateLogInput } from "@snake/shared";
-import { DB, type Db } from "../db/db.module";
-import { snakeLogs } from "../db/schema";
+import {desc, eq} from 'drizzle-orm';
+import {snakeLogs} from '../db/schema';
+import {DB, type Db} from '../db/db.module';
+import {Inject, Injectable} from '@nestjs/common';
+import type {CreateLogInput} from '@snake/shared';
 
 const MAX_LOGS = 200;
 
-/** Husbandry events: feeding, shed, weight, ... */
 @Injectable()
 export class LogService {
   constructor(@Inject(DB) private db: Db) {}
@@ -16,10 +15,17 @@ export class LogService {
   }
 
   async add(snakeId: string, userId: string, input: CreateLogInput) {
-    const [row] = await this.db.insert(snakeLogs).values({
-      snakeId, userId, type: input.type, value: input.value, notes: input.notes,
-      at: input.at ? new Date(input.at) : undefined,
-    }).returning();
+    const [row] = await this.db
+      .insert(snakeLogs)
+      .values({
+        snakeId,
+        userId,
+        type: input.type,
+        value: input.value,
+        notes: input.notes,
+        at: input.at ? new Date(input.at) : undefined,
+      })
+      .returning();
     return row!;
   }
 }

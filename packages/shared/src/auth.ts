@@ -1,4 +1,4 @@
-import { z } from "zod";
+import {z} from 'zod';
 
 export const RegisterInput = z.object({
   email: z.string().email(),
@@ -13,7 +13,11 @@ export const LoginInput = z.object({
 });
 export type LoginInput = z.infer<typeof LoginInput>;
 
-export interface User { id: string; email: string; displayName: string }
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+}
 
 export interface AuthResponse {
   token: string;

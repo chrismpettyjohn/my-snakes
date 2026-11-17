@@ -1,14 +1,18 @@
-import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
-import { CreateHomeInput, InviteMemberInput, UpdateHomeInput } from "@snake/shared";
-import { UserId } from "../auth/auth.guard";
-import { AccessService } from "../common/access.service";
-import { ZodPipe } from "../common/zod.pipe";
-import { HomeService } from "./home.service";
-import { StatusService } from "./status.service";
+import {UserId} from '../auth/auth.guard';
+import {ZodPipe} from '../common/zod.pipe';
+import {HomeService} from './home.service';
+import {StatusService} from './status.service';
+import {AccessService} from '../common/access.service';
+import {Body, Controller, Get, Param, Post, Put} from '@nestjs/common';
+import {CreateHomeInput, InviteMemberInput, UpdateHomeInput} from '@snake/shared';
 
-@Controller("homes")
+@Controller('homes')
 export class HomeController {
-  constructor(private home: HomeService, private access: AccessService, private status: StatusService) {}
+  constructor(
+    private home: HomeService,
+    private access: AccessService,
+    private status: StatusService,
+  ) {}
 
   @Get()
   list(@UserId() userId: string) {
@@ -20,30 +24,28 @@ export class HomeController {
     return this.home.create(userId, body.name);
   }
 
-  @Put(":homeId")
-  async update(@UserId() userId: string, @Param("homeId") homeId: string,
-    @Body(new ZodPipe(UpdateHomeInput)) body: UpdateHomeInput) {
+  @Put(':homeId')
+  async update(@UserId() userId: string, @Param('homeId') homeId: string, @Body(new ZodPipe(UpdateHomeInput)) body: UpdateHomeInput) {
     await this.access.requireOwner(userId, homeId);
     await this.home.update(homeId, body);
-    return { ok: true };
+    return {ok: true};
   }
 
-  @Get(":homeId/members")
-  async members(@UserId() userId: string, @Param("homeId") homeId: string) {
+  @Get(':homeId/members')
+  async members(@UserId() userId: string, @Param('homeId') homeId: string) {
     await this.access.role(userId, homeId);
     return this.home.members(homeId);
   }
 
-  @Post(":homeId/members")
-  async invite(@UserId() userId: string, @Param("homeId") homeId: string,
-    @Body(new ZodPipe(InviteMemberInput)) body: InviteMemberInput) {
+  @Post(':homeId/members')
+  async invite(@UserId() userId: string, @Param('homeId') homeId: string, @Body(new ZodPipe(InviteMemberInput)) body: InviteMemberInput) {
     await this.access.requireOwner(userId, homeId);
     await this.home.addMember(homeId, body.email);
-    return { ok: true };
+    return {ok: true};
   }
 
-  @Get(":homeId/status")
-  async homeStatus(@UserId() userId: string, @Param("homeId") homeId: string) {
+  @Get(':homeId/status')
+  async homeStatus(@UserId() userId: string, @Param('homeId') homeId: string) {
     await this.access.role(userId, homeId);
     return this.status.forHome(homeId);
   }

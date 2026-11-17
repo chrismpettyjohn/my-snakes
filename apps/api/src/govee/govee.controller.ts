@@ -1,11 +1,10 @@
-import { BadRequestException, Body, Controller, Delete, Post, Put } from "@nestjs/common";
-import { SetGoveeKeyInput } from "@snake/shared";
-import { UserId } from "../auth/auth.guard";
-import { ZodPipe } from "../common/zod.pipe";
-import { GoveeService } from "./govee.service";
+import {UserId} from '../auth/auth.guard';
+import {ZodPipe} from '../common/zod.pipe';
+import {GoveeService} from './govee.service';
+import {SetGoveeKeyInput} from '@snake/shared';
+import {BadRequestException, Body, Controller, Delete, Post, Put} from '@nestjs/common';
 
-/** The signed-in user's own Govee account; its sensors serve snakes in all their collections. */
-@Controller("govee")
+@Controller('govee')
 export class GoveeController {
   constructor(private govee: GoveeService) {}
 
@@ -14,19 +13,19 @@ export class GoveeController {
     try {
       return await this.govee.setKey(u, body.apiKey, body.email);
     } catch (e) {
-      throw new BadRequestException(e instanceof Error ? e.message : "Govee rejected the key");
+      throw new BadRequestException(e instanceof Error ? e.message : 'Govee rejected the key');
     }
   }
 
   @Delete()
   async clearKey(@UserId() u: string) {
     await this.govee.clearKey(u);
-    return { ok: true };
+    return {ok: true};
   }
 
-  @Post("refresh")
+  @Post('refresh')
   async refresh(@UserId() u: string) {
-    await this.govee.pollUser(u, { fresh: true });
-    return { ok: true };
+    await this.govee.pollUser(u, {fresh: true});
+    return {ok: true};
   }
 }

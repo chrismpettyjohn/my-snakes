@@ -1,18 +1,16 @@
-import { z } from "zod";
+import {z} from 'zod';
 
-export const Sex = z.enum(["male", "female", "unknown"]);
+export const Sex = z.enum(['male', 'female', 'unknown']);
 export type Sex = z.infer<typeof Sex>;
 
 export const UpsertSnakeInput = z.object({
   name: z.string().min(1).max(80),
   species: z.string().max(120).optional(),
   morph: z.string().max(200).optional(),
-  sex: Sex.default("unknown"),
+  sex: Sex.default('unknown'),
   hatchDate: z.string().date().nullable().optional(),
   notes: z.string().max(2000).optional(),
-  /** Small JPEG data URL (resized client-side). */
-  photo: z.string().startsWith("data:image/").max(400_000).nullable().optional(),
-  /** Each snake is its own enclosure: alert thresholds live here (°F / %RH). */
+  photo: z.string().startsWith('data:image/').max(400_000).nullable().optional(),
   minTempF: z.number().nullable().optional(),
   maxTempF: z.number().nullable().optional(),
   minHumidity: z.number().nullable().optional(),
@@ -20,12 +18,10 @@ export const UpsertSnakeInput = z.object({
 });
 export type UpsertSnakeInput = z.infer<typeof UpsertSnakeInput>;
 
-/** Full display order of a home's snakes, first to last. */
-export const ReorderSnakesInput = z.object({ ids: z.array(z.string().uuid()).max(500) });
+export const ReorderSnakesInput = z.object({ids: z.array(z.string().uuid()).max(500)});
 export type ReorderSnakesInput = z.infer<typeof ReorderSnakesInput>;
 
-/** Moves a snake to another collection (home) the user belongs to. */
-export const MoveSnakeInput = z.object({ homeId: z.string().uuid() });
+export const MoveSnakeInput = z.object({homeId: z.string().uuid()});
 export type MoveSnakeInput = z.infer<typeof MoveSnakeInput>;
 
 export interface AlertRanges {
@@ -46,13 +42,12 @@ export interface Snake extends AlertRanges {
   photo: string | null;
 }
 
-export const LogEventType = z.enum(["feeding", "refused", "shed", "poop", "urates", "water", "weight", "cleaning", "note"]);
+export const LogEventType = z.enum(['feeding', 'refused', 'shed', 'poop', 'urates', 'water', 'weight', 'cleaning', 'note']);
 export type LogEventType = z.infer<typeof LogEventType>;
 
 export const CreateLogInput = z.object({
   type: LogEventType,
   at: z.string().datetime().optional(),
-  /** grams for weight; prey description lives in notes */
   value: z.number().nullable().optional(),
   notes: z.string().max(2000).optional(),
 });

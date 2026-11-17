@@ -1,24 +1,26 @@
-import { createSignal, Show } from "solid-js";
-import { useNavigate } from "@solidjs/router";
-import { createAction } from "../lib/action";
-import { auth, setToken } from "../lib/api";
-import { refetchHomes } from "../lib/home";
+import {refetchHomes} from '../lib/home';
+import {auth, setToken} from '../lib/api';
+import {createAction} from '../lib/action';
+import {createSignal, Show} from 'solid-js';
+import {useNavigate} from '@solidjs/router';
 
 export default function Login() {
   const nav = useNavigate();
-  const [mode, setMode] = createSignal<"login" | "register">("login");
-  const { busy, error, setError, run } = createAction();
-  const login = () => mode() === "login";
+  const [mode, setMode] = createSignal<'login' | 'register'>('login');
+  const {busy, error, setError, run} = createAction();
+  const login = () => mode() === 'login';
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
     const f = new FormData(e.currentTarget as HTMLFormElement);
-    const email = String(f.get("email")), password = String(f.get("password")), displayName = String(f.get("displayName"));
+    const email = String(f.get('email')),
+      password = String(f.get('password')),
+      displayName = String(f.get('displayName'));
     void run(async () => {
       const r = login() ? await auth.login(email, password) : await auth.register(email, password, displayName);
       setToken(r.token);
       await refetchHomes();
-      nav("/");
+      nav('/');
     });
   }
 
@@ -27,21 +29,45 @@ export default function Login() {
       <form class="auth-card" onSubmit={submit}>
         <img class="login-avatar login-logo" src="/logo.png" alt="MySnakes" />
         <h1>MySnakes</h1>
-        <p class="lede">{login() ? "Sign in to check on your snakes." : "Create an account to get started."}</p>
+        <p class="lede">{login() ? 'Sign in to check on your snakes.' : 'Create an account to get started.'}</p>
         <div class="group">
           <Show when={!login()}>
-            <label class="cell"><input name="displayName" required maxLength={60} placeholder="Name" autocomplete="name" /></label>
+            <label class="cell">
+              <input name="displayName" required maxLength={60} placeholder="Name" autocomplete="name" />
+            </label>
           </Show>
-          <label class="cell"><input name="email" type="email" required placeholder="Email" autocomplete="email" /></label>
-          <label class="cell"><input name="password" type="password" required minLength={login() ? 1 : 8} placeholder="Password"
-            autocomplete={login() ? "current-password" : "new-password"} /></label>
+          <label class="cell">
+            <input name="email" type="email" required placeholder="Email" autocomplete="email" />
+          </label>
+          <label class="cell">
+            <input
+              name="password"
+              type="password"
+              required
+              minLength={login() ? 1 : 8}
+              placeholder="Password"
+              autocomplete={login() ? 'current-password' : 'new-password'}
+            />
+          </label>
         </div>
-        <Show when={error()}><p class="error" style={{ "text-align": "center" }}>{error()}</p></Show>
-        <button class="btn block" disabled={busy()}>{login() ? "Sign In" : "Create Account"}</button>
+        <Show when={error()}>
+          <p class="error" style={{'text-align': 'center'}}>
+            {error()}
+          </p>
+        </Show>
+        <button class="btn block" disabled={busy()}>
+          {login() ? 'Sign In' : 'Create Account'}
+        </button>
         <p class="switch">
-          {login() ? "New here? " : "Have an account? "}
-          <button type="button" onClick={() => { setError(""); setMode(login() ? "register" : "login"); }}>
-            {login() ? "Create an account" : "Sign in"}
+          {login() ? 'New here? ' : 'Have an account? '}
+          <button
+            type="button"
+            onClick={() => {
+              setError('');
+              setMode(login() ? 'register' : 'login');
+            }}
+          >
+            {login() ? 'Create an account' : 'Sign in'}
           </button>
         </p>
       </form>

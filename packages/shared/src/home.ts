@@ -1,25 +1,34 @@
-import { z } from "zod";
-import type { User } from "./auth";
+import {z} from 'zod';
+import type {User} from './auth';
 
-/** A home ("collection") is the tenancy unit. */
-export const HomeRole = z.enum(["owner", "member"]);
+export const HomeRole = z.enum(['owner', 'member']);
 export type HomeRole = z.infer<typeof HomeRole>;
 
-export const CreateHomeInput = z.object({ name: z.string().min(1).max(80) });
+export const CreateHomeInput = z.object({name: z.string().min(1).max(80)});
 export type CreateHomeInput = z.infer<typeof CreateHomeInput>;
 
-/** Where a collection lives (a room, floor or purpose), shown as its tile glyph with a colour. */
 export const CollectionIcon = z.enum([
-  "house", "bedroom", "living", "office", "upstairs", "basement", "garage", "closet", "rack", "breeding", "quarantine", "building",
+  'house',
+  'bedroom',
+  'living',
+  'office',
+  'upstairs',
+  'basement',
+  'garage',
+  'closet',
+  'rack',
+  'breeding',
+  'quarantine',
+  'building',
 ]);
 export type CollectionIcon = z.infer<typeof CollectionIcon>;
-export const CollectionColor = z.enum(["indigo", "blue", "teal", "green", "yellow", "orange", "red", "pink", "purple", "gray"]);
+export const CollectionColor = z.enum(['indigo', 'blue', 'teal', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'gray']);
 export type CollectionColor = z.infer<typeof CollectionColor>;
 
-export const UpdateHomeInput = CreateHomeInput.extend({ icon: CollectionIcon.optional(), color: CollectionColor.optional() });
+export const UpdateHomeInput = CreateHomeInput.extend({icon: CollectionIcon.optional(), color: CollectionColor.optional()});
 export type UpdateHomeInput = z.infer<typeof UpdateHomeInput>;
 
-export const InviteMemberInput = z.object({ email: z.string().email() });
+export const InviteMemberInput = z.object({email: z.string().email()});
 export type InviteMemberInput = z.infer<typeof InviteMemberInput>;
 
 export interface Home {
@@ -30,4 +39,6 @@ export interface Home {
   role: HomeRole;
 }
 
-export interface Member extends User { role: HomeRole }
+export interface Member extends User {
+  role: HomeRole;
+}

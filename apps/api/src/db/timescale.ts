@@ -1,11 +1,7 @@
-import { sql } from "drizzle-orm";
-import { READINGS_RETENTION_DAYS } from "../config";
-import type { Db } from "./db.module";
+import {sql} from 'drizzle-orm';
+import type {Db} from './db.module';
+import {READINGS_RETENTION_DAYS} from '../config';
 
-/**
- * Idempotent TimescaleDB setup for the readings table. Runs after drizzle migrations.
- * Each statement runs on its own: continuous aggregates can't be created inside a transaction.
- */
 export async function setupTimescale(db: Db) {
   const steps = [
     sql`create extension if not exists timescaledb`,
@@ -23,9 +19,7 @@ export async function setupTimescale(db: Db) {
   ];
   for (const s of steps) await db.execute(s);
 
-  // Retention can change via config: replace the policy each boot.
   await db.execute(sql`select remove_retention_policy('readings', if_exists => true)`);
   await db.execute(sql.raw(`select add_retention_policy('readings', interval '${READINGS_RETENTION_DAYS} days')`));
-  // Backfill the aggregate for anything already stored (no-op when up to date).
   await db.execute(sql`call refresh_continuous_aggregate('readings_5m', null, now() - interval '5 minutes')`);
 }
