@@ -1,12 +1,19 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from "@nestjs/common";
 import { and, eq, isNotNull } from "drizzle-orm";
+import { GOVEE_CHANNEL, type GoveeAccount, type ReadingInput } from "@snake/shared";
 import { GOVEE_POLL_SECONDS } from "../config";
 import { decryptSecret, encryptSecret } from "../common/crypto";
+import { errorMessage } from "../common/errors";
 import { DB, type Db } from "../db/db.module";
-import { devices, homes, readings } from "../db/schema";
+import { devices, homes } from "../db/schema";
+import { ReadingService } from "../reading/reading.service";
 import { govee, type GoveeDevice } from "./govee.client";
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const REMOVED = "Not in Govee account";
+const OFFLINE = "Offline";
+const NO_DATA = "No temperature/humidity in response";
+
+type GoveeRow = typeof devices.$inferSelect;
 
 @Injectable()
 export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -16,7 +23,7 @@ export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdo
   /** One poll per home at a time; the timer, Sync Now and key changes all share it. */
   private inFlight = new Map<string, Promise<void>>();
 
-  constructor(@Inject(DB) private db: Db) {}
+  constructor(@Inject(DB) private db: Db, private reading: ReadingService) {}
 
   onApplicationBootstrap() {
     this.timer = setInterval(() => void this.pollAll(), GOVEE_POLL_SECONDS * 1000);
@@ -24,18 +31,25 @@ export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdo
   }
   onApplicationShutdown() { clearInterval(this.timer); }
 
+  async account(homeId: string): Promise<GoveeAccount> {
+    const [h] = await this.db.select().from(homes).where(eq(homes.id, homeId));
+    return {
+      configured: !!h?.goveeApiKeyEnc, email: h?.goveeAccountEmail ?? null,
+      lastSyncAt: h?.goveeLastSyncAt?.toISOString() ?? null, lastError: h?.goveeLastError ?? null,
+    };
+  }
+
   /** Validates the key against Govee, stores it encrypted, then imports sensors and reads them. */
   async setKey(homeId: string, apiKey: string, email: string) {
     const list = await govee.listDevices(apiKey); // throws on a bad key
-    await this.db.update(homes).set({ goveeApiKeyEnc: await encryptSecret(apiKey), goveeAccountEmail: email, goveeLastError: null })
-      .where(eq(homes.id, homeId));
+    await this.updateHome(homeId, { goveeApiKeyEnc: await encryptSecret(apiKey), goveeAccountEmail: email, goveeLastError: null });
     await this.pollHome(homeId, { fresh: true });
     return { imported: list.filter(govee.isSensor).length };
   }
 
   async clearKey(homeId: string) {
     await this.inFlight.get(homeId); // don't let a running poll write an error after disconnect
-    await this.db.update(homes).set({ goveeApiKeyEnc: null, goveeAccountEmail: null, goveeLastError: null }).where(eq(homes.id, homeId));
+    await this.updateHome(homeId, { goveeApiKeyEnc: null, goveeAccountEmail: null, goveeLastError: null });
   }
 
   async pollAll() {
@@ -45,7 +59,7 @@ export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdo
       const rows = await this.db.select({ id: homes.id }).from(homes).where(isNotNull(homes.goveeApiKeyEnc));
       for (const h of rows) await this.pollHome(h.id);
     } catch (e) {
-      this.log.warn(`poll: ${errMsg(e)}`);
+      this.log.warn(`poll: ${errorMessage(e)}`);
     } finally { this.running = false; }
   }
 
@@ -67,60 +81,55 @@ export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdo
   }
 
   private async doPoll(homeId: string) {
-    const [home] = await this.db.select().from(homes).where(eq(homes.id, homeId));
-    if (!home?.goveeApiKeyEnc) return;
+    const [home] = await this.db.select({ keyEnc: homes.goveeApiKeyEnc }).from(homes).where(eq(homes.id, homeId));
+    if (!home?.keyEnc) return;
 
-    let list: GoveeDevice[];
     let apiKey: string;
+    let inAccount: Set<string>;
     try {
-      apiKey = await decryptSecret(home.goveeApiKeyEnc);
-      list = (await govee.listDevices(apiKey)).filter(govee.isSensor);
+      apiKey = await decryptSecret(home.keyEnc);
+      const list = (await govee.listDevices(apiKey)).filter(govee.isSensor);
       await this.syncDevices(homeId, list);
+      inAccount = new Set(list.map((d) => d.device));
     } catch (e) {
-      return this.setHomeError(homeId, errMsg(e));
+      return this.setHomeError(homeId, errorMessage(e));
     }
 
-    const inAccount = new Set(list.map((d) => d.device));
-    const devs = await this.db.select().from(devices)
-      .where(and(eq(devices.homeId, homeId), eq(devices.kind, "govee")));
+    const devs = await this.db.select().from(devices).where(and(eq(devices.homeId, homeId), eq(devices.kind, "govee")));
     let failed = 0;
-
     for (const d of devs) {
       if (!d.externalId || !d.model) continue;
       if (!inAccount.has(d.externalId)) {
         // Removed from the Govee account: keep its history and snake links, stop polling it.
-        if (d.lastError !== REMOVED) await this.db.update(devices).set({ lastError: REMOVED }).where(eq(devices.id, d.id));
+        if (d.lastError !== REMOVED) await this.setDevice(d.id, { lastError: REMOVED });
         continue;
       }
       try {
-        const s = await govee.sensorState(apiKey, { sku: d.model, device: d.externalId });
-        const now = new Date();
-        const rows = [
-          s.tempF !== undefined && { metric: "temp_f", value: s.tempF },
-          s.humidity !== undefined && { metric: "humidity", value: s.humidity },
-        ].filter(Boolean) as { metric: string; value: number }[];
-        if (s.online === false) {
-          await this.db.update(devices).set({ lastError: "Offline" }).where(eq(devices.id, d.id));
-          continue;
-        }
-        if (rows.length) {
-          await this.db.insert(readings).values(rows.map((r) => ({ ...r, deviceId: d.id, channel: "main", at: now })));
-        }
-        await this.db.update(devices)
-          .set(rows.length ? { lastSeenAt: now, lastError: null } : { lastError: "No temperature/humidity in response" })
-          .where(eq(devices.id, d.id));
+        await this.pollSensor(apiKey, d);
       } catch (e) {
         failed++;
-        const msg = errMsg(e);
+        const msg = errorMessage(e);
         this.log.warn(`home ${homeId} device ${d.externalId}: ${msg}`);
-        await this.db.update(devices).set({ lastError: msg }).where(eq(devices.id, d.id));
+        await this.setDevice(d.id, { lastError: msg });
       }
     }
 
-    await this.db.update(homes).set({
+    await this.updateHome(homeId, {
       goveeLastSyncAt: new Date(),
       goveeLastError: failed ? `${failed} of ${inAccount.size} sensors failed to update` : null,
-    }).where(eq(homes.id, homeId));
+    });
+  }
+
+  private async pollSensor(apiKey: string, d: GoveeRow) {
+    const s = await govee.sensorState(apiKey, { sku: d.model!, device: d.externalId! });
+    if (s.online === false) return this.setDevice(d.id, { lastError: OFFLINE });
+    const rows: ReadingInput[] = [];
+    if (s.tempF !== undefined) rows.push({ channel: GOVEE_CHANNEL, metric: "temp_f", value: s.tempF });
+    if (s.humidity !== undefined) rows.push({ channel: GOVEE_CHANNEL, metric: "humidity", value: s.humidity });
+    if (!rows.length) return this.setDevice(d.id, { lastError: NO_DATA });
+    const now = new Date();
+    await this.reading.record(d.id, rows, now);
+    await this.setDevice(d.id, { lastSeenAt: now, lastError: null });
   }
 
   private async setHomeError(homeId: string, msg: string) {
@@ -135,12 +144,15 @@ export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdo
     for (const d of list) {
       await this.db.insert(devices)
         .values({ homeId, kind: "govee", name: d.deviceName ?? d.sku, externalId: d.device, model: d.sku })
-        .onConflictDoUpdate({
-          target: [devices.homeId, devices.kind, devices.externalId],
-          set: { model: d.sku },
-        });
+        .onConflictDoUpdate({ target: [devices.homeId, devices.kind, devices.externalId], set: { model: d.sku } });
     }
   }
-}
 
-const REMOVED = "Not in Govee account";
+  private async updateHome(homeId: string, set: Partial<typeof homes.$inferInsert>) {
+    await this.db.update(homes).set(set).where(eq(homes.id, homeId));
+  }
+
+  private async setDevice(id: string, set: Partial<typeof devices.$inferInsert>) {
+    await this.db.update(devices).set(set).where(eq(devices.id, id));
+  }
+}

@@ -1,4 +1,4 @@
-import type { Metric } from "@snake/shared";
+import type { Metric, ReadingInput } from "@snake/shared";
 
 /** Shape of GET http://<herpstat>/RAWSTATUS (SpyderWeb). Keys per yipe/herpstat + jjack exporter. */
 export interface RawStatus {
@@ -52,8 +52,16 @@ export function outputs(s: RawStatus): [channel: string, o: RawOutput][] {
     .map((k) => [k, s[k as `output${number}`]]);
 }
 
-export function readingsFrom(s: RawStatus): { channel: string; metric: Metric; value: number }[] {
-  const out: { channel: string; metric: Metric; value: number }[] = [];
+/** Output nicknames set on the unit, e.g. { output1: "Edom Bask" }. */
+export function channelLabels(s: RawStatus): Record<string, string> {
+  return Object.fromEntries(outputs(s).flatMap(([ch, o]) => {
+    const name = o?.outputnickname?.trim();
+    return name ? [[ch, name]] : [];
+  }));
+}
+
+export function readingsFrom(s: RawStatus): ReadingInput[] {
+  const out: ReadingInput[] = [];
   const push = (channel: string, metric: Metric, v: unknown) => {
     const n = Number(v);
     if (v !== undefined && v !== null && v !== "" && Number.isFinite(n)) out.push({ channel, metric, value: n });

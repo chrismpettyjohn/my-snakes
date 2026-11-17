@@ -3,6 +3,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { AuthService } from "./auth.service";
+import { bearerToken } from "./bearer";
 
 export const Public = () => SetMetadata("public", true);
 export const UserId = createParamDecorator((_: unknown, ctx: ExecutionContext): string =>
@@ -15,10 +16,10 @@ export class AuthGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext) {
     if (this.reflector.getAllAndOverride<boolean>("public", [ctx.getHandler(), ctx.getClass()])) return true;
     const req = ctx.switchToHttp().getRequest();
-    const header: string | undefined = req.headers.authorization;
-    if (!header?.startsWith("Bearer ")) throw new UnauthorizedException();
+    const token = bearerToken(req.headers.authorization);
+    if (!token) throw new UnauthorizedException();
     try {
-      req.userId = await this.auth.verify(header.slice(7));
+      req.userId = await this.auth.verify(token);
       return true;
     } catch {
       throw new UnauthorizedException();

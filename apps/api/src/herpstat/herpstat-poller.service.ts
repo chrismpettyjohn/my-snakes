@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from "@nestjs/common";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { HERPSTAT_POLL_SECONDS } from "../config";
+import { errorMessage } from "../common/errors";
 import { DB, type Db } from "../db/db.module";
-import { devices, readings } from "../db/schema";
-import { fetchRawStatus, outputs, readingsFrom } from "./rawstatus";
+import { devices } from "../db/schema";
+import { ReadingService } from "../reading/reading.service";
+import { channelLabels, fetchRawStatus, readingsFrom } from "./rawstatus";
 
 /**
  * Polls Herpstat /RAWSTATUS over the LAN. Only useful while the API runs on the same network
@@ -15,7 +17,7 @@ export class HerpstatPollerService implements OnApplicationBootstrap, OnApplicat
   private timer?: Timer;
   private inFlight = new Set<string>();
 
-  constructor(@Inject(DB) private db: Db) {}
+  constructor(@Inject(DB) private db: Db, private reading: ReadingService) {}
 
   onApplicationBootstrap() {
     this.timer = setInterval(() => void this.pollAll(), HERPSTAT_POLL_SECONDS * 1000);
@@ -24,7 +26,7 @@ export class HerpstatPollerService implements OnApplicationBootstrap, OnApplicat
   onApplicationShutdown() { clearInterval(this.timer); }
 
   async pollAll() {
-    const devs = await this.db.select().from(devices)
+    const devs = await this.db.select({ id: devices.id }).from(devices)
       .where(and(eq(devices.kind, "herpstat"), isNotNull(devices.host)));
     await Promise.all(devs.map((d) => this.pollDevice(d.id)));
   }
@@ -39,17 +41,16 @@ export class HerpstatPollerService implements OnApplicationBootstrap, OnApplicat
       try {
         const s = await fetchRawStatus(d.host);
         const now = new Date();
-        const rows = readingsFrom(s);
-        if (rows.length) await this.db.insert(readings).values(rows.map((r) => ({ ...r, deviceId: d.id, at: now })));
+        await this.reading.record(d.id, readingsFrom(s), now);
         await this.db.update(devices).set({
           lastSeenAt: now, lastError: null,
-          channelLabels: Object.fromEntries(outputs(s).filter(([, o]) => o?.outputnickname?.trim()).map(([ch, o]) => [ch, o.outputnickname!.trim()])),
+          channelLabels: channelLabels(s),
           externalId: s.system.mac.toUpperCase(),
           firmware: s.system.firmware != null ? String(s.system.firmware) : d.firmware,
           model: d.model ?? `Herpstat ${s.system.numberofoutputs ?? ""}`.trim(),
         }).where(eq(devices.id, d.id));
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = errorMessage(e);
         if (msg !== d.lastError) this.log.warn(`${d.name} (${d.host}): ${msg}`);
         await this.db.update(devices).set({ lastError: msg }).where(eq(devices.id, d.id));
       }

@@ -1,7 +1,6 @@
-import type { Metric } from "@snake/shared";
+import type { Metric, ReadingInput } from "@snake/shared";
 
-export interface ParsedReading { channel: string; metric: Metric; value: number }
-export interface ParsedUpload { mac?: string; model?: string; readings: ParsedReading[] }
+export interface ParsedUpload { mac?: string; model?: string; readings: ReadingInput[] }
 
 /**
  * Best-effort parser for SpyderWeb "custom URL" status uploads (firmware 5.1+).

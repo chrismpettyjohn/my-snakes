@@ -9,7 +9,7 @@ packages/shared  zod schemas + types shared by both
 ```
 
 ## How data gets in
-- **Herpstat SpyderWeb (fw 5.1+)** pushes status to the API. Add a unit on the Devices page, then paste its upload URL and API key into the Herpstat under *ADMIN → Show Advanced Status Integration Options*. The API accepts the key in the URL path, in `?key=`, in an `X-API-Key` / Bearer header, or as a body field (`apikey`). Every raw upload is stored in `raw_uploads`, and `GET /devices/:id/raw-uploads` returns the 20 most recent, so `apps/api/src/ingest/herpstat-parser.ts` can be tuned to the real payload.
+- **Herpstat SpyderWeb (fw 5.1+)** pushes status to the API. Add a unit in Settings, then paste its upload URL and API key into the Herpstat under *ADMIN → Show Advanced Status Integration Options*. The API accepts the key in the URL path, in `?key=`, in an `X-API-Key` / Bearer header, or as a body field (`apikey`). Every raw upload is stored in `raw_uploads`, and `GET /devices/:id/raw-uploads` returns the 20 most recent, so `apps/api/src/herpstat/ingest/herpstat-parser.ts` can be tuned to the real payload.
 - **Govee WiFi thermo-hygrometers**: each collection owner adds their own Govee API key. It is encrypted at rest, and the server polls Govee's cloud every `GOVEE_POLL_SECONDS`.
 
 ## Tenancy

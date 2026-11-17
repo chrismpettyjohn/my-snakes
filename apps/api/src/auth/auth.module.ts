@@ -3,8 +3,10 @@ import { APP_GUARD } from "@nestjs/core";
 import { AuthController } from "./auth.controller";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
+import { HomeModule } from "../home/home.module";
 
 @Module({
+  imports: [HomeModule],
   controllers: [AuthController],
   providers: [AuthService, { provide: APP_GUARD, useClass: AuthGuard }],
 })
