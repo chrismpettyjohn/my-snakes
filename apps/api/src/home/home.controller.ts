@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
-import { CreateHomeInput, InviteMemberInput } from "@snake/shared";
+import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
+import { CreateHomeInput, InviteMemberInput, UpdateHomeInput } from "@snake/shared";
 import { UserId } from "../auth/auth.guard";
 import { AccessService } from "../common/access.service";
 import { ZodPipe } from "../common/zod.pipe";
@@ -18,6 +18,14 @@ export class HomeController {
   @Post()
   create(@UserId() userId: string, @Body(new ZodPipe(CreateHomeInput)) body: CreateHomeInput) {
     return this.home.create(userId, body.name);
+  }
+
+  @Put(":homeId")
+  async update(@UserId() userId: string, @Param("homeId") homeId: string,
+    @Body(new ZodPipe(UpdateHomeInput)) body: UpdateHomeInput) {
+    await this.access.requireOwner(userId, homeId);
+    await this.home.rename(homeId, body.name);
+    return { ok: true };
   }
 
   @Get(":homeId/members")

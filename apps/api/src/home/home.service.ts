@@ -22,6 +22,10 @@ export class HomeService {
     return { id: h!.id, name: h!.name, role: "owner" };
   }
 
+  async rename(homeId: string, name: string) {
+    await this.db.update(homes).set({ name }).where(eq(homes.id, homeId));
+  }
+
   members(homeId: string): Promise<Member[]> {
     return this.db.select({ id: users.id, email: users.email, displayName: users.displayName, role: homeMembers.role })
       .from(homeMembers).innerJoin(users, eq(users.id, homeMembers.userId))

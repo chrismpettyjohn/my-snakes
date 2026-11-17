@@ -5,41 +5,46 @@ import { LOG_STYLE } from "../../lib/art";
 import { onDismiss } from "../../lib/dismiss";
 import { Icon } from "../../lib/icons";
 
-type Item = { label: string; type: LogEventType };
+export type LogItem = { label: string; type: LogEventType };
 
 /**
  * Header action menu: one-tap husbandry logging without opening the snake's sheet.
  * Groups expand in place (one open at a time); a single-item group is just a direct action.
  */
-const QUICK_LOG: { group: string; emoji: string; items: Item[] }[] = [
+export const QUICK_LOG: { group: string; emoji: string; items: LogItem[] }[] = [
   { group: "Food", emoji: "🍽️", items: [{ label: "Ate", type: "feeding" }, { label: "Rejected", type: "refused" }] },
   { group: "Waste", emoji: "💩", items: [{ label: "Pooped", type: "poop" }, { label: "Urates", type: "urates" }] },
   { group: "Body", emoji: "✨", items: [{ label: "Shed", type: "shed" }] },
-  { group: "Cleaning", emoji: "🧽", items: [{ label: "Water changed", type: "water" }, { label: "Cleanup performed", type: "cleaning" }] },
+  { group: "Cleanup", emoji: "🧽", items: [{ label: "Water changed", type: "water" }, { label: "Cleanup performed", type: "cleaning" }] },
 ];
 
 /** How long the ✓ shows before the menu closes. */
 const CONFIRM_MS = 650;
 
-export function QuickLog(p: { snakeId: string; name: string; onLogged?: () => void }) {
-  const [open, setOpen] = createSignal(false);
+/** Logs an event for a snake, shows a ✓ on its menu item briefly, then calls `close`. */
+export function createLogger(p: { snakeId: () => string; onLogged?: () => void; close: () => void }) {
   const [done, setDone] = createSignal<LogEventType | null>(null);
-  const [group, setGroup] = createSignal<string | null>(null);
-  let root: HTMLDivElement | undefined;
-  const close = () => { setOpen(false); setGroup(null); };
-  onDismiss(() => root, () => open() && close());
-
   async function log(type: LogEventType) {
-    await api(`/snakes/${p.snakeId}/logs`, { body: { type } });
+    await api(`/snakes/${p.snakeId()}/logs`, { body: { type } });
     setDone(type);
     p.onLogged?.();
-    setTimeout(() => { setDone(null); close(); }, CONFIRM_MS);
+    setTimeout(() => { setDone(null); p.close(); }, CONFIRM_MS);
   }
-  const item = (it: Item) => (
+  const item = (it: LogItem) => (
     <button type="button" role="menuitem" disabled={!!done()} onClick={() => log(it.type)}>
       <span class="emoji">{done() === it.type ? "✓" : LOG_STYLE[it.type].emoji}</span>{it.label}
     </button>
   );
+  return { item };
+}
+
+export function QuickLog(p: { snakeId: string; name: string; onLogged?: () => void }) {
+  const [open, setOpen] = createSignal(false);
+  const [group, setGroup] = createSignal<string | null>(null);
+  let root: HTMLDivElement | undefined;
+  const close = () => { setOpen(false); setGroup(null); };
+  onDismiss(() => root, () => open() && close());
+  const { item } = createLogger({ snakeId: () => p.snakeId, onLogged: () => p.onLogged?.(), close });
 
   return (
     // Stop pointerdown so pressing the menu never starts a header drag.

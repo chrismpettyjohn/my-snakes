@@ -4,10 +4,10 @@ import type { Snake, SnakeStatus } from "@snake/shared";
 import { api } from "../lib/api";
 import { EmptyScene, SnakePic } from "../lib/art";
 import { plural } from "../lib/format";
-import { homeId } from "../lib/home";
+import { currentHome, homeId, homes, isOwner, refetchHomes } from "../lib/home";
 import { Icon } from "../lib/icons";
 import { storage, createStoredSignal } from "../lib/storage";
-import { PageHead, Sheet } from "../lib/ui";
+import { FormSheet, PageHead, Section, Sheet, formValue } from "../lib/ui";
 import { createReorder } from "../components/snake/createReorder";
 import { QuickLog } from "../components/snake/QuickLog";
 import { SnakeForm } from "../components/snake/SnakeForm";
@@ -28,6 +28,7 @@ export default function Snakes() {
 
   const [openId, setOpenId] = createSignal<string | null>(null);
   const [adding, setAdding] = createSignal(false);
+  const [renaming, setRenaming] = createSignal(false);
   const [pick, setPick] = createSignal<ZonePick | null>(null);
 
   // Collapsed rows and the layout are per-browser conveniences; everything is expanded by default.
@@ -54,14 +55,30 @@ export default function Snakes() {
   });
   const focusRow = (id: string) => rowsEl.querySelector<HTMLElement>(`.snake-row[data-id="${id}"] .snake-toggle`)?.focus();
 
-  const title = () => {
+  // Collection (home) name, with a one-line health summary underneath.
+  const alerting = () => status()?.filter((s) => s.alerts.length).length ?? 0;
+  const summary = () => {
     const n = status()?.length;
-    return n == null ? "Snakes" : plural(n, "Snake");
+    if (!n) return undefined;
+    return <><span class={`status-dot ${alerting() ? "bad" : ""}`} />{plural(n, "snake")} · {alerting() ? `${alerting()} need${alerting() === 1 ? "s" : ""} attention` : "all good"}</>;
   };
+
+  const otherHomes = () => homes()?.filter((h) => h.id !== homeId()) ?? [];
+  async function move(snake: Snake, toId: string) {
+    const to = otherHomes().find((h) => h.id === toId);
+    if (!to || !confirm(`Move ${snake.name} to ${to.name}? Its sensor links will be removed.`)) return false;
+    await api(`/snakes/${snake.id}/home`, { method: "PUT", body: { homeId: to.id } });
+    refresh();
+    return true;
+  }
 
   return (
     <>
-      <PageHead title={title()}>
+      <PageHead small sub={summary()} title={
+        // Owners rename the collection by clicking its name.
+        <span class={isOwner() ? "renamable" : ""} title={isOwner() ? "Rename collection" : undefined}
+          onClick={() => isOwner() && setRenaming(true)}>{currentHome()?.name ?? "Your snakes"}</span>
+      }>
         <Show when={status()?.length}>
           {/* One button cycles Full → Compact → Mini → Activity; its icon shows the current view. */}
           <button type="button" class="btn gray round" onClick={() => setView(nextView().id)}
@@ -69,7 +86,7 @@ export default function Snakes() {
             {VIEWS[viewIdx()]!.icon()}
           </button>
         </Show>
-        <button class="btn" onClick={() => setAdding(true)}>{Icon.plus()}Add</button>
+        <button class="btn round" onClick={() => setAdding(true)} aria-label="Add snake" title="Add snake">{Icon.plus()}</button>
       </PageHead>
 
       <Show when={status()?.length === 0}>
@@ -101,7 +118,7 @@ export default function Snakes() {
               <QuickLog snakeId={s.id} name={s.name} onLogged={refetchStatus} />
             </div>
             <Show when={!collapsed().has(s.id)}>
-              <Zones s={s} snake={byId().get(s.id)} view={view()} onPick={(role) => setPick({ s, role })} onOpen={() => setOpenId(s.id)} />
+              <Zones s={s} snake={byId().get(s.id)} view={view()} onPick={(role) => setPick({ s, role })} onOpen={() => setOpenId(s.id)} onLogged={refetchStatus} />
             </Show>
           </section>
         )}</For>
@@ -110,6 +127,35 @@ export default function Snakes() {
       <SnakeSheet status={status()?.find((s) => s.id === openId())} snake={openId() ? byId().get(openId()!) : undefined}
         onClose={() => setOpenId(null)} onChange={refresh} onPick={(s, role) => setPick({ s, role })} />
       <ZonePicker pick={pick()} onClose={() => setPick(null)} onChange={refresh} />
+      <FormSheet open={renaming()} title="Collection" onClose={() => setRenaming(false)}
+        onSubmit={async (e) => {
+          await api(`/homes/${homeId()}`, { method: "PUT", body: { name: formValue(e, "name") } });
+          await refetchHomes();
+          setRenaming(false);
+        }}
+        after={
+          <Section title={plural(snakes()?.length ?? 0, "Snake")}
+            foot={otherHomes().length ? undefined : "Create another collection in Settings to move snakes between them."}>
+            <For each={snakes()} fallback={<div class="cell"><span class="muted">No snakes yet</span></div>}>{(sn) => (
+              <div class="cell">
+                <SnakePic s={sn} size={32} />
+                <span class="grow"><span class="title">{sn.name}</span><span class="detail">{sn.species || "Species not set"}</span></span>
+                <Show when={otherHomes().length}>
+                  <select aria-label={`Move ${sn.name} to another collection`}
+                    onChange={(e) => {
+                      const el = e.currentTarget;
+                      move(sn, el.value).then((ok) => { if (!ok) el.value = ""; }, (err: Error) => { el.value = ""; alert(err.message); });
+                    }}>
+                    <option value="">Move to…</option>
+                    <For each={otherHomes()}>{(h) => <option value={h.id}>{h.name}</option>}</For>
+                  </select>
+                </Show>
+              </div>
+            )}</For>
+          </Section>
+        }>
+        <label class="cell"><input name="name" required maxLength={80} placeholder="Name" value={currentHome()?.name ?? ""} autofocus /></label>
+      </FormSheet>
       <Sheet open={adding()} onClose={() => setAdding(false)} title="New Snake">
         <SnakeForm onDone={() => { setAdding(false); refresh(); }} />
       </Sheet>

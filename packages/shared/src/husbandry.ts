@@ -24,6 +24,10 @@ export type UpsertSnakeInput = z.infer<typeof UpsertSnakeInput>;
 export const ReorderSnakesInput = z.object({ ids: z.array(z.string().uuid()).max(500) });
 export type ReorderSnakesInput = z.infer<typeof ReorderSnakesInput>;
 
+/** Moves a snake to another collection (home) the user belongs to. */
+export const MoveSnakeInput = z.object({ homeId: z.string().uuid() });
+export type MoveSnakeInput = z.infer<typeof MoveSnakeInput>;
+
 export interface AlertRanges {
   minTempF: number | null;
   maxTempF: number | null;

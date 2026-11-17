@@ -1,9 +1,11 @@
-import { For, Match, Show, Switch, type JSX } from "solid-js";
+import { createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
 import { ROLE_LABEL, SENSOR_ROLES, ambient, type LogEventType, type Snake, type SnakeStatus, type SensorRole, type Zone } from "@snake/shared";
 import { LOG_STYLE } from "../../lib/art";
+import { onDismiss } from "../../lib/dismiss";
 import { ago, day, since } from "../../lib/format";
 import { Icon, ZONE_GLYPH } from "../../lib/icons";
 import { ambientHealth, rangesFor } from "./health";
+import { QUICK_LOG, createLogger } from "./QuickLog";
 
 const NBSP = " ";
 
@@ -60,37 +62,52 @@ type LastLog = SnakeStatus["lastLog"];
 const latest = (...xs: (string | undefined)[]) => xs.filter((x): x is string => !!x).sort().at(-1);
 
 /**
- * Activity view: how long since the snake was last fed, its enclosure cleaned, and it last passed
- * waste. Each tile shows the elapsed time big, and the date (plus any caveat) underneath.
+ * Activity view: how long since the snake last ate, passed waste, and had its enclosure cleaned.
+ * Each tile shows the elapsed time big, and the date (plus any caveat) underneath. Tapping a tile
+ * opens a quick menu of that group's log actions (e.g. Food → Ate / Rejected).
  */
 const ACTIVITY: { label: string; style: LogEventType; at: (l: LastLog) => string | undefined; sub: (l: LastLog, at: string) => string }[] = [
   {
-    label: "Fed", style: "feeding", at: (l) => l.feeding,
+    label: "Food", style: "feeding", at: (l) => l.feeding,
     // A refusal after the last meal is the thing worth knowing.
-    sub: (l, at) => l.refused && l.refused > at ? `Refused ${ago(l.refused)}` : day(at),
+    sub: (l, at) => l.refused && l.refused > at ? `Rejected ${ago(l.refused)}` : day(at),
   },
-  { label: "Cleaned", style: "cleaning", at: (l) => l.cleaning, sub: (_, at) => day(at) },
   {
     label: "Waste", style: "poop", at: (l) => latest(l.poop, l.urates),
-    sub: (l, at) => `${at === l.poop ? "Poop" : "Urates"} · ${day(at)}`,
+    sub: (l, at) => `${at === l.poop ? "Pooped" : "Urates"} · ${day(at)}`,
   },
+  { label: "Cleanup", style: "cleaning", at: (l) => l.cleaning, sub: (_, at) => day(at) },
 ];
 
-function ActivityCard(p: { a: (typeof ACTIVITY)[number]; s: SnakeStatus; onOpen: () => void }) {
+function ActivityCard(p: { a: (typeof ACTIVITY)[number]; s: SnakeStatus; onLogged?: () => void }) {
   const at = () => p.a.at(p.s.lastLog);
   const st = LOG_STYLE[p.a.style];
+  const items = QUICK_LOG.find((g) => g.group === p.a.label)?.items ?? [];
+  const [open, setOpen] = createSignal(false);
+  let root: HTMLDivElement | undefined;
+  const close = () => setOpen(false);
+  onDismiss(() => root, () => open() && close());
+  const { item } = createLogger({ snakeId: () => p.s.id, onLogged: () => p.onLogged?.(), close });
   return (
-    <button type="button" class={`zone activity-tile ${at() ? "" : "empty"}`} style={{ "--c": st.color }} onClick={p.onOpen}
-      title={at() ? new Date(at()!).toLocaleString() : undefined}>
-      <span class="zone-top">
-        <span class="zone-ic">{st.emoji}</span>
-        <Show when={at()}>{(t) => <span class="zone-v">{since(t())}</span>}</Show>
-      </span>
-      <span class="zone-text">
-        <span class="zone-l">{p.a.label}</span>
-        <span class="zone-sub">{at() ? p.a.sub(p.s.lastLog, at()!) : "Not logged"}</span>
-      </span>
-    </button>
+    <div class="activity-wrap" ref={root}>
+      <button type="button" class={`zone activity-tile ${at() ? "" : "empty"}`} style={{ "--c": st.color }}
+        aria-haspopup="menu" aria-expanded={open()} onClick={() => setOpen(!open())}
+        title={at() ? new Date(at()!).toLocaleString() : undefined}>
+        <span class="zone-top">
+          <span class="zone-ic">{st.emoji}</span>
+          <Show when={at()}>{(t) => <span class="zone-v">{since(t())}</span>}</Show>
+        </span>
+        <span class="zone-text">
+          <span class="zone-l">{p.a.label}</span>
+          <span class="zone-sub">{at() ? p.a.sub(p.s.lastLog, at()!) : "Not logged"}</span>
+        </span>
+      </button>
+      <Show when={open()}>
+        <div class="user-dropdown log-menu activity-menu" role="menu" aria-label={`${p.a.label} for ${p.s.name}`}>
+          <For each={items}>{item}</For>
+        </div>
+      </Show>
+    </div>
   );
 }
 
@@ -106,8 +123,8 @@ export const isView = (v: string): v is View => VIEWS.some((x) => x.id === v);
 /** Compact view only shows the ambient zones (warm/cold sides). */
 const COMPACT_ROLES: SensorRole[] = ["warm", "cold"];
 
-/** A snake's tiles in the chosen view. Zone tiles pick a sensor; the others open the snake. */
-export function Zones(p: { s: SnakeStatus; snake?: Snake; view?: View; onPick: (role: SensorRole) => void; onOpen?: () => void }) {
+/** A snake's tiles in the chosen view. Zone tiles pick a sensor, activity tiles open a log menu, the climate tile opens the snake. */
+export function Zones(p: { s: SnakeStatus; snake?: Snake; view?: View; onPick: (role: SensorRole) => void; onOpen?: () => void; onLogged?: () => void }) {
   const open = () => p.onOpen?.();
   return (
     <div class="zones">
@@ -115,7 +132,7 @@ export function Zones(p: { s: SnakeStatus; snake?: Snake; view?: View; onPick: (
         <For each={p.view === "compact" ? COMPACT_ROLES : SENSOR_ROLES}>{(r) => <ZoneCard role={r} z={p.s.zones[r]} onOpen={() => p.onPick(r)} />}</For>
       }>
         <Match when={p.view === "mini"}><ClimateCard s={p.s} snake={p.snake} onOpen={open} /></Match>
-        <Match when={p.view === "activity"}><For each={ACTIVITY}>{(a) => <ActivityCard a={a} s={p.s} onOpen={open} />}</For></Match>
+        <Match when={p.view === "activity"}><For each={ACTIVITY}>{(a) => <ActivityCard a={a} s={p.s} onLogged={p.onLogged} />}</For></Match>
       </Switch>
     </div>
   );

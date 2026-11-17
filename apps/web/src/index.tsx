@@ -14,7 +14,7 @@ function Layout(props: RouteSectionProps) {
     <Show when={token()} fallback={<Navigate href="/login" />}>
       <header class="navbar">
         <div class="navbar-inner">
-          <A href="/" class="brand"><img class="brand-mark" src="/logo.png" alt="" />MySnakes</A>
+          <A href="/" class="brand"><span class="brand-badge"><img class="brand-mark" src="/logo.png" alt="" /></span>MySnakes</A>
           <UserMenu />
         </div>
       </header>

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from "@nestjs/common";
-import { CreateLogInput, ReorderSnakesInput, UpsertSnakeInput } from "@snake/shared";
+import { CreateLogInput, MoveSnakeInput, ReorderSnakesInput, UpsertSnakeInput } from "@snake/shared";
 import { UserId } from "../auth/auth.guard";
 import { AccessService } from "../common/access.service";
 import { ZodPipe } from "../common/zod.pipe";
@@ -37,6 +37,16 @@ export class HusbandryController {
     @Body(new ZodPipe(UpsertSnakeInput)) body: UpsertSnakeInput) {
     await this.access.snake(u, id);
     return this.snake.update(id, body);
+  }
+
+  /** Needs membership in both collections. */
+  @Put("snakes/:id/home")
+  async moveSnake(@UserId() u: string, @Param("id") id: string,
+    @Body(new ZodPipe(MoveSnakeInput)) body: MoveSnakeInput) {
+    const snake = await this.access.snake(u, id);
+    await this.access.role(u, body.homeId);
+    if (snake.homeId !== body.homeId) await this.snake.move(id, body.homeId);
+    return { ok: true };
   }
 
   @Delete("snakes/:id")

@@ -1,7 +1,9 @@
 import { A } from "@solidjs/router";
-import { createSignal, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { logout, me } from "./api";
 import { onDismiss } from "./dismiss";
+import { homeId, homes, selectHome } from "./home";
+import { Icon } from "./icons";
 import { Avatar } from "./ui";
 
 export function UserMenu() {
@@ -19,6 +21,17 @@ export function UserMenu() {
         <Show when={open()}>
           <div class="user-dropdown" role="menu">
             <div class="user-head"><span class="title">{u().displayName}</span><span class="detail">{u().email}</span></div>
+            {/* Switching collections re-mounts the page (see Layout), so its data reloads. */}
+            <Show when={(homes()?.length ?? 0) > 1}>
+              <div class="menu-label">Collections</div>
+              <For each={homes()}>{(h) => (
+                <button type="button" role="menuitemradio" aria-checked={h.id === homeId()} class="menu-check"
+                  onClick={() => { selectHome(h.id); setOpen(false); }}>
+                  <span class="grow">{h.name}</span><Show when={h.id === homeId()}>{Icon.check()}</Show>
+                </button>
+              )}</For>
+              <div class="menu-sep" />
+            </Show>
             <A href="/settings" role="menuitem" onClick={() => setOpen(false)}>Settings</A>
             <button type="button" role="menuitem" class="danger" onClick={() => { setOpen(false); logout(); }}>Log Out</button>
           </div>

@@ -59,16 +59,17 @@ a { color: var(--tint); text-decoration: none; }
 
 /* ---------- Navigation ---------- */
 .navbar {
-  position: sticky; top: 0; z-index: 10; background: var(--bar);
-  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 0.5px solid var(--hairline);
+  position: sticky; top: 0; z-index: 10;
+  /* A faint green glow that fades into the page. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--green) 14%, var(--bg)), var(--bg));
 }
 .navbar-inner {
   max-width: calc(var(--column) + var(--gutter) * 2); margin: 0 auto; padding: 0 var(--gutter);
-  height: 52px; display: flex; align-items: center; gap: 24px;
+  height: 60px; display: flex; align-items: center; gap: 24px;
 }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; }
-.brand-mark { width: 34px; height: 34px; object-fit: contain; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+.brand-badge { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in srgb, var(--green) 22%, var(--surface)); }
+.brand-mark { width: 30px; height: 30px; object-fit: contain; }
 a.brand { color: inherit; text-decoration: none; }
 
 /* ---------- User menu ---------- */
@@ -94,6 +95,11 @@ a.brand { color: inherit; text-decoration: none; }
 }
 .user-dropdown a:hover, .user-dropdown button:hover { background: var(--fill); }
 .user-dropdown .danger { color: var(--red); }
+.menu-label { padding: 6px 10px 2px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+.user-dropdown .menu-check { display: flex; align-items: center; gap: 10px; }
+.menu-check .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-check .check { width: 16px; height: 16px; color: var(--tint); flex: none; }
+.menu-sep { height: 0.5px; margin: 4px 0; background: var(--hairline); }
 .user-menu { margin-left: auto; }
 
 /* ---------- Snake header quick-log menu ---------- */
@@ -123,6 +129,13 @@ main { max-width: calc(var(--column) + var(--gutter) * 2); margin: 0 auto; paddi
 .page-head > .btn + .btn { margin-left: -8px; }
 .page-head h1 { font-size: clamp(30px, 6vw, 36px); font-weight: 700; letter-spacing: -0.025em; }
 .page-head p { margin-top: 4px; color: var(--text-2); font-size: 17px; }
+.page-head.small { align-items: flex-end; padding: 22px 0; }
+.page-head.small h1 { font-family: var(--font); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.page-head.small p { margin-top: 2px; font-size: 13px; }
+.renamable { cursor: pointer; }
+.renamable:hover { text-decoration: underline; text-decoration-color: var(--text-3); text-underline-offset: 3px; }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--green); }
+.status-dot.bad { background: var(--red); }
 
 /* ---------- Buttons ---------- */
 button {
@@ -296,6 +309,14 @@ details.section:not([open]) { margin-bottom: 20px; }
 .rows.activity .zones { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .zone.activity-tile .zone-ic { font-size: 18px; background: color-mix(in srgb, var(--c) 22%, transparent); }
 .zone.activity-tile.empty .zone-ic { background: var(--fill); filter: grayscale(1); opacity: .6; }
+.activity-wrap { position: relative; display: flex; min-width: 0; }
+.activity-wrap > .zone { flex: 1; }
+.activity-wrap > .zone[aria-expanded="true"] { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--c); }
+/* Pops out from just under the tile's icon (14px padding + 34px icon); the last tile's menu grows
+   leftward instead so it never spills off a phone screen. */
+.activity-menu { top: 54px; left: 8px; right: auto; min-width: 180px; transform-origin: 20px 0; animation: pop-in .14s ease-out; }
+.activity-wrap:last-child .activity-menu { left: auto; right: 8px; transform-origin: right top; }
+@keyframes pop-in { from { opacity: 0; transform: scale(.85); } }
 @media (max-width: 560px) { .rows.activity { grid-template-columns: minmax(0, 1fr); } .rows.activity .zones { gap: 8px; } }
 .zone.climate { --c: #30b0c7; }
 .zone.climate .zone-ic { background: linear-gradient(135deg, var(--zone-warm), var(--zone-cold)); }

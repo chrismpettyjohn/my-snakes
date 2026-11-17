@@ -75,10 +75,11 @@ export function Section(p: { title?: JSX.Element; foot?: JSX.Element; collapse?:
   );
 }
 
-export function PageHead(p: { title: string; sub?: JSX.Element; children?: JSX.Element }) {
+/** Page title row with actions on the right. Without a title, the actions still sit right-aligned. */
+export function PageHead(p: { title?: JSX.Element; small?: boolean; sub?: JSX.Element; children?: JSX.Element }) {
   return (
-    <header class="page-head">
-      <div><h1>{p.title}</h1><Show when={p.sub}><p>{p.sub}</p></Show></div>
+    <header class={`page-head ${p.small ? "small" : ""}`}>
+      <div><Show when={p.title}><h1>{p.title}</h1></Show><Show when={p.sub}><p>{p.sub}</p></Show></div>
       {p.children}
     </header>
   );
@@ -129,8 +130,11 @@ export const onActivate = (fn: () => void) => (e: KeyboardEvent) => {
 export const formValue = (e: SubmitEvent, name: string) =>
   String(new FormData(e.currentTarget as HTMLFormElement).get(name) ?? "").trim();
 
-/** A sheet wrapping one form: Done submits it, and a failed submit shows its error in the footer. */
-export function FormSheet(p: { open: boolean; title: string; onClose: () => void; onSubmit: (e: SubmitEvent) => Promise<unknown>; foot?: JSX.Element; children: JSX.Element }) {
+/**
+ * A sheet wrapping one form: Done submits it, and a failed submit shows its error in the footer.
+ * `after` renders below the form, for related content that isn't part of the submit.
+ */
+export function FormSheet(p: { open: boolean; title: string; onClose: () => void; onSubmit: (e: SubmitEvent) => Promise<unknown>; foot?: JSX.Element; after?: JSX.Element; children: JSX.Element }) {
   const { busy, error, setError, run } = createAction();
   let form!: HTMLFormElement;
   return (
@@ -140,6 +144,7 @@ export function FormSheet(p: { open: boolean; title: string; onClose: () => void
         <Section foot={error() ? <span class="error">{error()}</span> : p.foot}>{p.children}</Section>
         <button hidden />
       </form>
+      {p.after}
     </Sheet>
   );
 }
