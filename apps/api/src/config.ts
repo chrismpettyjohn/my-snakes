@@ -4,23 +4,25 @@ function required(name: string): string {
   return v;
 }
 
-export const DATABASE_URL = required('DATABASE_URL');
-export const JWT_SECRET = required('JWT_SECRET');
-export const SECRET_KEY = required('SECRET_KEY');
-export const PUBLIC_API_URL = process.env.PUBLIC_API_URL ?? 'http://localhost:3000';
-export const PORT = Number(process.env.PORT ?? 3000);
-export const GOVEE_POLL_SECONDS = Number(process.env.GOVEE_POLL_SECONDS ?? 300);
-export const HERPSTAT_POLL_SECONDS = Math.max(10, Number(process.env.HERPSTAT_POLL_SECONDS ?? 30));
-export const READINGS_RETENTION_DAYS = Math.max(2, Number(process.env.READINGS_RETENTION_DAYS ?? 14));
-export const MIGRATE_ON_BOOT = (process.env.MIGRATE_ON_BOOT ?? 'true') !== 'false';
-export const HERPSTAT_SCAN_SUBNETS = (process.env.HERPSTAT_SCAN_SUBNETS ?? '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-export const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+export const PORT = Number(process.env.PORT ?? 3000);
+export const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+export const WEB_URL = (process.env.WEB_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 
-if (SECRET_KEY.length < 32) throw new Error('SECRET_KEY must be at least 32 characters');
-if (IS_PRODUCTION && [JWT_SECRET, SECRET_KEY].some(v => v.startsWith('change-me'))) {
-  throw new Error('JWT_SECRET and SECRET_KEY must be changed from the .env.example placeholders in production');
+const POSTGRES_HOST = process.env.POSTGRES_HOST ?? 'localhost';
+const POSTGRES_PORT = process.env.POSTGRES_PORT ?? '5432';
+const POSTGRES_USER = required('POSTGRES_USER');
+const POSTGRES_PASS = required('POSTGRES_PASS');
+const POSTGRES_NAME = required('POSTGRES_NAME');
+export const DATABASE_URL = `postgres://${encodeURIComponent(POSTGRES_USER)}:${encodeURIComponent(POSTGRES_PASS)}@${POSTGRES_HOST}:${POSTGRES_PORT}/${encodeURIComponent(POSTGRES_NAME)}`;
+
+export const JWT_SECRET = required('JWT_SECRET');
+export const POSTGRES_ENCRYPTION_KEY = required('POSTGRES_ENCRYPTION_KEY');
+
+export const DISCORD_CLIENT_ID = required('DISCORD_CLIENT_ID');
+export const DISCORD_CLIENT_SECRET = required('DISCORD_CLIENT_SECRET');
+
+if (POSTGRES_ENCRYPTION_KEY.length < 15) throw new Error('POSTGRES_ENCRYPTION_KEY must be at least 15 characters');
+if (IS_PRODUCTION && [JWT_SECRET, POSTGRES_ENCRYPTION_KEY].some(v => v.startsWith('change-me'))) {
+  throw new Error('JWT_SECRET and POSTGRES_ENCRYPTION_KEY must be changed from the .env.example placeholders in production');
 }

@@ -1,8 +1,8 @@
 import postgres from 'postgres';
 import * as schema from './schema';
+import {DATABASE_URL} from '../config';
 import {runMigrations} from './migrate';
 import {Global, Module} from '@nestjs/common';
-import {DATABASE_URL, MIGRATE_ON_BOOT} from '../config';
 import {drizzle, type PostgresJsDatabase} from 'drizzle-orm/postgres-js';
 
 export const DB = Symbol('DB');
@@ -16,7 +16,7 @@ export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
       provide: DB,
       useFactory: async (): Promise<Db> => {
         const db = drizzle(postgres(DATABASE_URL, {onnotice: () => {}}), {schema});
-        if (MIGRATE_ON_BOOT) await runMigrations(db);
+        await runMigrations(db);
         return db;
       },
     },

@@ -2,10 +2,11 @@ import {devices} from '../db/schema';
 import {DB, type Db} from '../db/db.module';
 import {errorMessage} from '../common/errors';
 import {and, eq, isNotNull} from 'drizzle-orm';
-import {HERPSTAT_POLL_SECONDS} from '../config';
 import {ReadingService} from '../reading/reading.service';
 import {channelLabels, fetchRawStatus, readingsFrom} from './rawstatus';
 import {Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown} from '@nestjs/common';
+
+const POLL_MS = 30_000;
 
 @Injectable()
 export class HerpstatPollerService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -19,7 +20,7 @@ export class HerpstatPollerService implements OnApplicationBootstrap, OnApplicat
   ) {}
 
   onApplicationBootstrap() {
-    this.timer = setInterval(() => void this.pollAll(), HERPSTAT_POLL_SECONDS * 1000);
+    this.timer = setInterval(() => void this.pollAll(), POLL_MS);
     void this.pollAll();
   }
   onApplicationShutdown() {

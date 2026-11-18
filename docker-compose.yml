@@ -1,18 +1,19 @@
 # Database only. The API runs with bun and the web app is served from apps/web/dist.
-#   docker compose up -d
-# POSTGRES_PASSWORD is read from apps/api/.env (keep it in sync with DATABASE_URL).
+#   bun run db:up    (docker compose --env-file apps/api/.env up -d)
+# Only the Postgres credentials below are passed into the container, never the API's other secrets.
+# They only apply when the data volume is first created.
 services:
   db:
     image: timescale/timescaledb:2.17.2-pg17
     restart: unless-stopped
-    env_file: apps/api/.env
     environment:
-      POSTGRES_USER: snake
-      POSTGRES_DB: snake
+      POSTGRES_USER: ${POSTGRES_USER:?set in apps/api/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS:?set in apps/api/.env}
+      POSTGRES_DB: ${POSTGRES_NAME:?set in apps/api/.env}
     ports: ["127.0.0.1:5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U snake"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       retries: 20
 

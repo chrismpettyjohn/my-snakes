@@ -1,11 +1,11 @@
-import {SECRET_KEY} from '../config';
+import {POSTGRES_ENCRYPTION_KEY} from '../config';
 
 const enc = new TextEncoder();
 let keyPromise: Promise<CryptoKey> | undefined;
 
 function key() {
   keyPromise ??= (async () => {
-    const hash = await crypto.subtle.digest('SHA-256', enc.encode(SECRET_KEY));
+    const hash = await crypto.subtle.digest('SHA-256', enc.encode(POSTGRES_ENCRYPTION_KEY));
     return crypto.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
   })();
   return keyPromise;

@@ -1,6 +1,7 @@
 import {sql} from 'drizzle-orm';
 import type {Db} from './db.module';
-import {READINGS_RETENTION_DAYS} from '../config';
+
+const RETENTION_DAYS = 14;
 
 export async function setupTimescale(db: Db) {
   const steps = [
@@ -20,6 +21,6 @@ export async function setupTimescale(db: Db) {
   for (const s of steps) await db.execute(s);
 
   await db.execute(sql`select remove_retention_policy('readings', if_exists => true)`);
-  await db.execute(sql.raw(`select add_retention_policy('readings', interval '${READINGS_RETENTION_DAYS} days')`));
+  await db.execute(sql.raw(`select add_retention_policy('readings', interval '${RETENTION_DAYS} days')`));
   await db.execute(sql`call refresh_continuous_aggregate('readings_5m', null, now() - interval '5 minutes')`);
 }

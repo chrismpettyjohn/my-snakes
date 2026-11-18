@@ -1,6 +1,5 @@
 import {DB, type Db} from '../db/db.module';
 import {devices, users} from '../db/schema';
-import {GOVEE_POLL_SECONDS} from '../config';
 import {errorMessage} from '../common/errors';
 import {and, eq, isNotNull} from 'drizzle-orm';
 import {govee, type GoveeDevice} from './govee.client';
@@ -9,6 +8,7 @@ import {decryptSecret, encryptSecret} from '../common/crypto';
 import {GOVEE_CHANNEL, type GoveeAccount, type ReadingInput} from '@snake/shared';
 import {Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown} from '@nestjs/common';
 
+const POLL_MS = 5 * 60_000;
 const REMOVED = 'Not in Govee account';
 const OFFLINE = 'Offline';
 const NO_DATA = 'No temperature/humidity in response';
@@ -28,7 +28,7 @@ export class GoveeService implements OnApplicationBootstrap, OnApplicationShutdo
   ) {}
 
   onApplicationBootstrap() {
-    this.timer = setInterval(() => void this.pollAll(), GOVEE_POLL_SECONDS * 1000);
+    this.timer = setInterval(() => void this.pollAll(), POLL_MS);
     void this.pollAll();
   }
   onApplicationShutdown() {
