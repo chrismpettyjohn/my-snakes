@@ -50,5 +50,9 @@ bun install
 bun run db:migrate             # or just start the API (migrates on boot)
 bun run dev:api                # :3000
 bun run dev:web                # :5173
-bun run db:generate            # after editing apps/api/src/db/schema.ts
+bun run db:create add_thing    # new apps/api/src/db/migrations/NNNN_add_thing.ts
+bun run db:revert              # run the last applied migration's down()
 ```
+
+Each migration in `apps/api/src/db/migrations` exports `up(sql)` and `down(sql)`. Write both by hand
+alongside your changes to `schema.ts`. Applied migrations are tracked in the `schema_migrations` table.

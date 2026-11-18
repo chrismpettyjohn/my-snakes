@@ -17,7 +17,7 @@ const noComments = {
 };
 
 export default tseslint.config(
-  {ignores: ['**/node_modules/**', '**/dist/**', 'apps/api/drizzle/**']},
+  {ignores: ['**/node_modules/**', '**/dist/**']},
   ...gts,
   {
     files: ['**/*.ts', '**/*.tsx'],

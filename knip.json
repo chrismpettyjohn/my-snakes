@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "drizzle": false,
   "workspaces": {
-    "apps/api": {"entry": ["drizzle.config.ts"], "project": ["src/**/*.ts"]},
+    "apps/api": {"entry": ["src/db/migrations/*.ts", "src/db/*.cli.ts"], "project": ["src/**/*.ts"]},
     "apps/web": {"project": ["src/**/*.{ts,tsx}"]},
     "packages/shared": {"project": ["src/**/*.ts"]}
   }

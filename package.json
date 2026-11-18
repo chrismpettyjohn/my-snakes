@@ -23,7 +23,7 @@
     "db:down": "docker compose --env-file apps/api/.env down",
     "db:migrate": "bun run --filter api db:migrate",
     "db:revert": "bun run --filter api db:revert",
-    "db:generate": "bun run --filter api db:generate"
+    "db:create": "bun run --filter api db:create"
   },
   "devDependencies": {
     "eslint": "9",

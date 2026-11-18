@@ -11,5 +11,5 @@
     "strictPropertyInitialization": false,
     "types": ["bun"]
   },
-  "include": ["src", "drizzle.config.ts"]
+  "include": ["src"]
 }
