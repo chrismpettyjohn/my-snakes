@@ -1,22 +1,14 @@
 import {z} from 'zod';
 
-export const RegisterInput = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  displayName: z.string().min(1).max(60),
-});
-export type RegisterInput = z.infer<typeof RegisterInput>;
-
-export const LoginInput = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-export type LoginInput = z.infer<typeof LoginInput>;
+export const DiscordLoginInput = z.object({code: z.string().min(1).max(200)});
+export type DiscordLoginInput = z.infer<typeof DiscordLoginInput>;
 
 export interface User {
   id: string;
+  username: string | null;
   email: string;
   displayName: string;
+  avatarUrl: string | null;
 }
 
 export interface AuthResponse {

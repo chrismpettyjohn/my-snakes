@@ -3,12 +3,32 @@ import {users} from '../db/schema';
 import {JWT_SECRET} from '../config';
 import {SignJWT, jwtVerify} from 'jose';
 import {DB, type Db} from '../db/db.module';
+import {encryptSecret} from '../common/crypto';
 import {HomeService} from '../home/home.service';
-import type {AuthResponse, LoginInput, RegisterInput, User} from '@snake/shared';
-import {ConflictException, Inject, Injectable, UnauthorizedException} from '@nestjs/common';
+import type {AuthResponse, User} from '@snake/shared';
+import {avatarUrl, exchangeCode, fetchMe} from './discord.client';
+import {BadGatewayException, ConflictException, ForbiddenException, Inject, Injectable, UnauthorizedException} from '@nestjs/common';
 
 const secret = new TextEncoder().encode(JWT_SECRET);
-const publicUser = {id: users.id, email: users.email, displayName: users.displayName};
+const userCols = {
+  id: users.id,
+  discordId: users.discordId,
+  username: users.username,
+  email: users.email,
+  displayName: users.displayName,
+  avatar: users.avatar,
+};
+type UserRow = {id: string; discordId: string | null; username: string | null; email: string; displayName: string; avatar: string | null};
+
+const toUser = (u: UserRow): User => ({
+  id: u.id,
+  username: u.username,
+  email: u.email,
+  displayName: u.displayName,
+  avatarUrl: avatarUrl(u.discordId, u.avatar),
+});
+
+const isUniqueViolation = (e: unknown) => (e as {code?: string})?.code === '23505';
 
 @Injectable()
 export class AuthService {
@@ -17,31 +37,53 @@ export class AuthService {
     private home: HomeService,
   ) {}
 
-  async register(input: RegisterInput): Promise<AuthResponse> {
-    const email = input.email.toLowerCase();
-    const [existing] = await this.db.select({id: users.id}).from(users).where(eq(users.email, email));
-    if (existing) throw new ConflictException('Email already registered');
-    const passwordHash = await Bun.password.hash(input.password);
-    const user = await this.db.transaction(async tx => {
-      const [u] = await tx.insert(users).values({email, passwordHash, displayName: input.displayName}).returning(publicUser);
-      await this.home.create(u!.id, `${input.displayName}'s Collection`, tx);
-      return u!;
-    });
-    return this.issue(user);
-  }
-
-  async login(input: LoginInput): Promise<AuthResponse> {
-    const [u] = await this.db.select().from(users).where(eq(users.email, input.email.toLowerCase()));
-    if (!u || !(await Bun.password.verify(input.password, u.passwordHash))) {
-      throw new UnauthorizedException('Invalid email or password');
+  async discordLogin(code: string): Promise<AuthResponse> {
+    let tokens, d;
+    try {
+      tokens = await exchangeCode(code);
+      d = await fetchMe(tokens.access_token);
+    } catch {
+      throw new BadGatewayException('Discord sign-in failed. Please try again.');
     }
-    return this.issue(u);
+    if (!d.email || !d.verified) throw new ForbiddenException('Your Discord account needs a verified email address to sign in.');
+    const profile = {
+      discordId: d.id,
+      username: d.username,
+      email: d.email.toLowerCase(),
+      displayName: d.global_name || d.username,
+      avatar: d.avatar,
+      discordAccessTokenEnc: await encryptSecret(tokens.access_token),
+      discordRefreshTokenEnc: await encryptSecret(tokens.refresh_token),
+      discordTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+    };
+
+    try {
+      const user = await this.db.transaction(async tx => {
+        const [byDiscord] = await tx.select({id: users.id}).from(users).where(eq(users.discordId, d.id));
+        const [byEmail] = byDiscord
+          ? []
+          : await tx.select({id: users.id, discordId: users.discordId}).from(users).where(eq(users.email, profile.email));
+        if (byEmail?.discordId) throw new ConflictException('That email is already linked to a different Discord account.');
+        const existing = byDiscord ?? byEmail;
+        if (existing) {
+          const [u] = await tx.update(users).set(profile).where(eq(users.id, existing.id)).returning(userCols);
+          return u!;
+        }
+        const [u] = await tx.insert(users).values(profile).returning(userCols);
+        await this.home.create(u!.id, `${u!.displayName}'s Collection`, tx);
+        return u!;
+      });
+      return this.issue(user);
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new ConflictException('That email is already linked to a different Discord account.');
+      throw e;
+    }
   }
 
   async me(userId: string): Promise<User> {
-    const [u] = await this.db.select(publicUser).from(users).where(eq(users.id, userId));
+    const [u] = await this.db.select(userCols).from(users).where(eq(users.id, userId));
     if (!u) throw new UnauthorizedException();
-    return u;
+    return toUser(u);
   }
 
   async verify(token: string): Promise<string> {
@@ -49,8 +91,8 @@ export class AuthService {
     return payload.sub!;
   }
 
-  private async issue(u: User): Promise<AuthResponse> {
+  private async issue(u: UserRow): Promise<AuthResponse> {
     const token = await new SignJWT({}).setProtectedHeader({alg: 'HS256'}).setSubject(u.id).setIssuedAt().setExpirationTime('30d').sign(secret);
-    return {token, user: {id: u.id, email: u.email, displayName: u.displayName}};
+    return {token, user: toUser(u)};
   }
 }

@@ -28,7 +28,14 @@ export type CollectionColor = z.infer<typeof CollectionColor>;
 export const UpdateHomeInput = CreateHomeInput.extend({icon: CollectionIcon.optional(), color: CollectionColor.optional()});
 export type UpdateHomeInput = z.infer<typeof UpdateHomeInput>;
 
-export const InviteMemberInput = z.object({email: z.string().email()});
+export const InviteMemberInput = z.object({
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .transform(s => s.replace(/^@/, ''))
+    .pipe(z.string().min(2).max(32)),
+});
 export type InviteMemberInput = z.infer<typeof InviteMemberInput>;
 
 export interface Home {

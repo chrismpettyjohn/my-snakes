@@ -40,7 +40,7 @@ export class HomeController {
   @Post(':homeId/members')
   async invite(@UserId() userId: string, @Param('homeId') homeId: string, @Body(new ZodPipe(InviteMemberInput)) body: InviteMemberInput) {
     await this.access.requireOwner(userId, homeId);
-    await this.home.addMember(homeId, body.email);
+    await this.home.addMember(homeId, body.username);
     return {ok: true};
   }
 

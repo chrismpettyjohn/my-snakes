@@ -25,9 +25,14 @@ export const logType = pgEnum('log_type', LogEventType.options);
 
 export const users = pgTable('users', {
   id: id(),
+  discordId: text('discord_id').unique(),
+  username: text('username'),
   email: text('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
   displayName: text('display_name').notNull(),
+  avatar: text('avatar'),
+  discordAccessTokenEnc: text('discord_access_token_enc'),
+  discordRefreshTokenEnc: text('discord_refresh_token_enc'),
+  discordTokenExpiresAt: timestamp('discord_token_expires_at', {withTimezone: true}),
   goveeApiKeyEnc: text('govee_api_key_enc'),
   goveeAccountEmail: text('govee_account_email'),
   goveeLastSyncAt: timestamp('govee_last_sync_at', {withTimezone: true}),

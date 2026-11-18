@@ -1,4 +1,5 @@
 import {eq} from 'drizzle-orm';
+import {avatarUrl} from '../auth/discord.client';
 import {DB, type Db, type Tx} from '../db/db.module';
 import {homeMembers, homes, users} from '../db/schema';
 import type {Home, Member, UpdateHomeInput} from '@snake/shared';
@@ -28,17 +29,33 @@ export class HomeService {
     await this.db.update(homes).set(input).where(eq(homes.id, homeId));
   }
 
-  members(homeId: string): Promise<Member[]> {
-    return this.db
-      .select({id: users.id, email: users.email, displayName: users.displayName, role: homeMembers.role})
+  async members(homeId: string): Promise<Member[]> {
+    const rows = await this.db
+      .select({
+        id: users.id,
+        discordId: users.discordId,
+        username: users.username,
+        email: users.email,
+        displayName: users.displayName,
+        avatar: users.avatar,
+        role: homeMembers.role,
+      })
       .from(homeMembers)
       .innerJoin(users, eq(users.id, homeMembers.userId))
       .where(eq(homeMembers.homeId, homeId));
+    return rows.map(r => ({
+      id: r.id,
+      username: r.username,
+      email: r.email,
+      displayName: r.displayName,
+      avatarUrl: avatarUrl(r.discordId, r.avatar),
+      role: r.role,
+    }));
   }
 
-  async addMember(homeId: string, email: string) {
-    const [u] = await this.db.select({id: users.id}).from(users).where(eq(users.email, email.toLowerCase()));
-    if (!u) throw new NotFoundException('No user with that email');
+  async addMember(homeId: string, username: string) {
+    const [u] = await this.db.select({id: users.id}).from(users).where(eq(users.username, username));
+    if (!u) throw new NotFoundException('No MySnakes user with that Discord username');
     await this.db.insert(homeMembers).values({homeId, userId: u.id, role: 'member'}).onConflictDoNothing();
   }
 }
