@@ -31,7 +31,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.{ts,tsx,js,mjs}'],
+    files: ['**/*.cjs'],
+    languageOptions: {sourceType: 'commonjs', globals: {__dirname: 'readonly', process: 'readonly', require: 'readonly', module: 'writable'}},
+  },
+  {
+    files: ['**/*.{ts,tsx,js,mjs,cjs}'],
     plugins: {local: {rules: {'no-comments': noComments}}, 'unused-imports': unusedImports, perfectionist},
     rules: {
       'local/no-comments': 'error',

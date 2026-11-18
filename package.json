@@ -11,12 +11,18 @@
     "dev:web": "bun run --filter web dev",
     "build": "bun run --filter web build",
     "start": "bun run --filter api start",
-    "dev:start": "pm2 start \"bun run dev:api\" --name snake-api && pm2 start \"bun run dev:web\" --name snake-web",
-    "dev:stop": "pm2 delete snake-api snake-web",
+    "dev:start": "pm2 start ecosystem.config.cjs --update-env && pm2 list",
+    "dev:stop": "pm2 delete ecosystem.config.cjs",
+    "dev:restart": "pm2 restart ecosystem.config.cjs --update-env",
+    "dev:logs": "pm2 logs",
+    "dev:status": "pm2 list",
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "eslint . && knip",
     "lint:fix": "eslint . --fix && knip --fix",
+    "db:up": "docker compose --env-file apps/api/.env up -d",
+    "db:down": "docker compose --env-file apps/api/.env down",
     "db:migrate": "bun run --filter api db:migrate",
+    "db:revert": "bun run --filter api db:revert",
     "db:generate": "bun run --filter api db:generate"
   },
   "devDependencies": {
@@ -25,6 +31,7 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "gts": "^7.0.0",
     "knip": "^6.45.1",
+    "pm2": "7.0.4",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.73.0"
   }
