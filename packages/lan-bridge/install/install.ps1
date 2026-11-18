@@ -1,7 +1,6 @@
 param([Parameter(Mandatory = $true)][string]$ApiUrl, [Parameter(Mandatory = $true)][string]$Token)
 
 $ApiUrl = $ApiUrl.TrimEnd('/')
-$Name = 'snake-bridge'
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   Write-Error 'Docker Desktop is required: https://docs.docker.com/desktop/setup/install/windows-install/'; return
@@ -17,6 +16,7 @@ if (-not $subnets) {
 
 $alias = if ($ApiUrl -match '^http://(localhost|127\.0\.0\.1)([:/]|$)') { 'host.docker.internal' } else { '' }
 $local = if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot '..\src\agent.ts'))) { (Resolve-Path (Join-Path $PSScriptRoot '..')).Path } else { '' }
+$Name = if ($local) { 'snake-bridge-local' } else { 'snake-bridge' }
 
 Write-Host "Building $Name image..."
 if ($local) {

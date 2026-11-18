@@ -3,7 +3,6 @@ set -eu
 
 API_URL="${1:-${API_URL:-}}"
 TOKEN="${2:-${BRIDGE_TOKEN:-}}"
-NAME=snake-bridge
 
 fail() { echo "$*" >&2; exit 1; }
 [ -n "$API_URL" ] && [ -n "$TOKEN" ] || fail "Usage: install.sh <api-url> <bridge-token>  (copy the full command from Settings → Bridge)"
@@ -34,6 +33,7 @@ LOCAL=""
 case "$0" in
   *install.sh) LOCAL="$(cd "$(dirname "$0")/.." && pwd)" && [ -f "$LOCAL/src/agent.ts" ] || LOCAL="" ;;
 esac
+NAME=snake-bridge${LOCAL:+-local}
 
 echo "Building $NAME image${LOCAL:+ from $LOCAL}…"
 if [ -n "$LOCAL" ]; then
