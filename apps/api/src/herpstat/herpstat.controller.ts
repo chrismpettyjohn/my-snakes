@@ -17,11 +17,6 @@ export class HerpstatController {
     return this.herpstat.add(u, body);
   }
 
-  @Post('devices/herpstat/discover')
-  discover(@UserId() u: string) {
-    return this.herpstat.discover(u);
-  }
-
   @Post('devices/:id/refresh')
   async refresh(@UserId() u: string, @Param('id') id: string) {
     await this.herpstat.refresh(await this.access.device(u, id));

@@ -82,9 +82,3 @@ export interface UploadCredentials {
   uploadUrl: string;
   apiKey: string;
 }
-
-export interface FoundHerpstat {
-  host: string;
-  mac: string;
-  name: string;
-}
