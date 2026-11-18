@@ -9,7 +9,7 @@ packages/shared  zod schemas + types shared by both
 ```
 
 ## How data gets in
-- **Herpstat SpyderWeb (fw 5.1+)** pushes status to the API. Add a unit in Settings, then paste its upload URL and API key into the Herpstat under *ADMIN → Show Advanced Status Integration Options*. The API accepts the key in the URL path, in `?key=`, in an `X-API-Key` / Bearer header, or as a body field (`apikey`). Every raw upload is stored in `raw_uploads`, and `GET /devices/:id/raw-uploads` returns the 20 most recent, so `apps/api/src/herpstat/ingest/herpstat-parser.ts` can be tuned to the real payload.
+- **Herpstat SpyderWeb (fw 5.1+)** pushes status to a webhook. Name a unit in Settings and you get a webhook URL (`POST /webhook/:userId/:webhookId`, where `userId` is the owner's internal id) and an API key. Paste both into the Herpstat under *ADMIN → Show Advanced Status Integration Options*. Each webhook belongs to one user and one Herpstat, and a unit can have several (`POST /devices/:id/webhooks`); keys can be rotated or webhooks removed from the unit's **Webhooks** menu. The API accepts the key in `?key=`, an `X-API-Key` / Bearer header, or a body field (`apikey`). Every raw upload is stored in `raw_uploads`, and `GET /devices/:id/raw-uploads` returns the 20 most recent, so `apps/api/src/herpstat/herpstat-parser.ts` can be tuned to the real payload.
 - **Govee WiFi thermo-hygrometers**: each collection owner adds their own Govee API key. It is encrypted at rest, and the server polls Govee's cloud every 5 minutes.
 
 ## Tenancy
@@ -37,9 +37,6 @@ bun run start                            # API on $PORT
 - **DB**: TimescaleDB (Postgres 17) on `127.0.0.1:5433`. Compose creates it from `POSTGRES_USER`/`POSTGRES_PASS`/
   `POSTGRES_NAME` in `apps/api/.env`. `readings` is a hypertable with compression after 2 days and 14 days of
   raw retention. The `readings_5m` continuous aggregate is kept forever.
-
-Herpstats are added by hand in Settings. Give a unit an IP address and the API polls its `/RAWSTATUS`
-(only works when the API can reach it), or leave it blank and point the unit's upload at the URL shown.
 
 ## Dev
 ```sh

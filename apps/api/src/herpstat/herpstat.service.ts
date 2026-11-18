@@ -1,43 +1,24 @@
-import {API_URL} from '../config';
 import {desc, eq} from 'drizzle-orm';
 import {DB, type Db} from '../db/db.module';
-import {randomToken} from '../common/crypto';
 import {devices, rawUploads} from '../db/schema';
-import {HerpstatPollerService} from './herpstat-poller.service';
-import {BadRequestException, Inject, Injectable} from '@nestjs/common';
-import type {CreateHerpstatInput, UploadCredentials} from '@snake/shared';
+import {Inject, Injectable} from '@nestjs/common';
+import {WebhookService} from '../webhook/webhook.service';
+import type {CreatedHerpstat, CreateHerpstatInput} from '@snake/shared';
 
 const RECENT_RAW_UPLOADS = 20;
-
-export const uploadCredentials = (token: string): UploadCredentials => ({uploadUrl: `${API_URL}/ingest/herpstat/${token}`, apiKey: token});
 
 @Injectable()
 export class HerpstatService {
   constructor(
     @Inject(DB) private db: Db,
-    private poller: HerpstatPollerService,
+    private webhook: WebhookService,
   ) {}
 
-  async add(ownerId: string, input: CreateHerpstatInput) {
-    const token = randomToken();
-    const [d] = await this.db
-      .insert(devices)
-      .values({ownerId, kind: 'herpstat', name: input.name, host: input.host ?? null, ingestToken: token})
-      .returning();
-    if (d!.host) await this.poller.pollDevice(d!.id);
-    return {id: d!.id, ...uploadCredentials(token)};
-  }
-
-  async refresh(d: typeof devices.$inferSelect) {
-    if (d.kind !== 'herpstat' || !d.host) throw new BadRequestException('Only Herpstats with an IP address can be refreshed');
-    await this.poller.pollDevice(d.id);
-  }
-
-  async rotateKey(d: typeof devices.$inferSelect): Promise<UploadCredentials> {
-    if (d.kind !== 'herpstat') throw new BadRequestException('Only Herpstat devices have upload keys');
-    const token = randomToken();
-    await this.db.update(devices).set({ingestToken: token}).where(eq(devices.id, d.id));
-    return uploadCredentials(token);
+  add(ownerId: string, input: CreateHerpstatInput): Promise<CreatedHerpstat> {
+    return this.db.transaction(async tx => {
+      const [d] = await tx.insert(devices).values({ownerId, kind: 'herpstat', name: input.name}).returning();
+      return {id: d!.id, webhook: await this.webhook.create(d!, tx)};
+    });
   }
 
   rawUploads(deviceId: string) {

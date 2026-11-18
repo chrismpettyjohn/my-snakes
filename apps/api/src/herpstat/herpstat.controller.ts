@@ -17,17 +17,6 @@ export class HerpstatController {
     return this.herpstat.add(u, body);
   }
 
-  @Post('devices/:id/refresh')
-  async refresh(@UserId() u: string, @Param('id') id: string) {
-    await this.herpstat.refresh(await this.access.device(u, id));
-    return {ok: true};
-  }
-
-  @Post('devices/:id/rotate-key')
-  async rotateKey(@UserId() u: string, @Param('id') id: string) {
-    return this.herpstat.rotateKey(await this.access.ownedDevice(u, id));
-  }
-
   @Get('devices/:id/raw-uploads')
   async rawUploads(@UserId() u: string, @Param('id') id: string) {
     await this.access.ownedDevice(u, id);

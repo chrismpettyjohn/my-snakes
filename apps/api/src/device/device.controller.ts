@@ -4,7 +4,7 @@ import {DeviceService} from './device.service';
 import {AccessService} from '../common/access.service';
 import {ReadingService} from '../reading/reading.service';
 import {AssignSensorInput, UpdateDeviceInput} from '@snake/shared';
-import {Body, Controller, Delete, ForbiddenException, Get, Param, Put, Query} from '@nestjs/common';
+import {Body, Controller, Delete, Get, Param, Put, Query} from '@nestjs/common';
 
 @Controller()
 export class DeviceController {
@@ -22,9 +22,7 @@ export class DeviceController {
 
   @Put('devices/:id')
   async update(@UserId() u: string, @Param('id') id: string, @Body(new ZodPipe(UpdateDeviceInput)) body: UpdateDeviceInput) {
-    const d = await this.access.device(u, id);
-    if (body.host !== undefined && d.ownerId !== u) throw new ForbiddenException('Owner only');
-    await this.device.update(d, body);
+    await this.device.update(await this.access.device(u, id), body);
     return {ok: true};
   }
 

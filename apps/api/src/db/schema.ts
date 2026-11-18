@@ -1,4 +1,4 @@
-import {CollectionColor, CollectionIcon, DeviceKind, HomeRole, LogEventType, Sex, type SensorRole} from '@snake/shared';
+import {CollectionColor, CollectionIcon, DeviceKind, HomeRole, LogEventType, Sex, WebhookProviderName, type SensorRole} from '@snake/shared';
 import {
   pgTable,
   pgMaterializedView,
@@ -22,6 +22,7 @@ export const homeRole = pgEnum('home_role', HomeRole.options);
 export const sex = pgEnum('sex', Sex.options);
 export const deviceKind = pgEnum('device_kind', DeviceKind.options);
 export const logType = pgEnum('log_type', LogEventType.options);
+export const webhookProvider = pgEnum('webhook_provider', WebhookProviderName.options);
 
 export const users = pgTable('users', {
   id: id(),
@@ -114,15 +115,31 @@ export const devices = pgTable(
     name: text('name').notNull(),
     externalId: text('external_id'),
     model: text('model'),
-    host: text('host'),
     firmware: text('firmware'),
     lastError: text('last_error'),
     channelLabels: jsonb('channel_labels').$type<Record<string, string>>(),
-    ingestToken: text('ingest_token').unique(),
     lastSeenAt: timestamp('last_seen_at', {withTimezone: true}),
     createdAt: createdAt(),
   },
   t => [index('devices_owner_idx').on(t.ownerId), uniqueIndex('devices_owner_kind_ext_idx').on(t.ownerId, t.kind, t.externalId)],
+);
+
+export const webhooks = pgTable(
+  'webhooks',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, {onDelete: 'cascade'}),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.id, {onDelete: 'cascade'}),
+    provider: webhookProvider('provider').notNull(),
+    apiKey: text('api_key').notNull().unique(),
+    lastReceivedAt: timestamp('last_received_at', {withTimezone: true}),
+    createdAt: createdAt(),
+  },
+  t => [index('webhooks_device_idx').on(t.deviceId), index('webhooks_user_idx').on(t.userId)],
 );
 
 export const snakeSensors = pgTable(

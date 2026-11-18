@@ -7,16 +7,16 @@ import {ChannelCell} from '../components/setting/ChannelCell';
 import {WebhookCells} from '../components/setting/WebhookCells';
 import {createResource, createSignal, For, Show} from 'solid-js';
 import {CollectionTile, DeviceTile, Glyph, Icon, IconTile, TILE} from '../lib/icons';
-import {GOVEE_CHANNEL, type Device, type Member, type SensorRole} from '@snake/shared';
 import {currentHome, homeId, homes, isOwner, refetchHomes, selectHome} from '../lib/home';
-import {ActionSheet, Avatar, FormSheet, PageHead, Section, formValue, type Action} from '../lib/ui';
+import {GOVEE_CHANNEL, type CreatedHerpstat, type Device, type Member, type SensorRole} from '@snake/shared';
+import {ActionSheet, Avatar, CopyCell, FormSheet, PageHead, Section, Sheet, formValue, type Action} from '../lib/ui';
 
 const ONLINE_MS = 5 * 60_000;
 const GOVEE_ACCOUNT = 'govee-account';
 const online = (d: Device) => !!d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_MS;
 const updated = (d: Device, first: string | null) => [first, `updated ${ago(d.lastSeenAt)}`].filter(Boolean).join(' · ');
 
-type SheetId = 'manual' | 'govee' | 'member' | 'home' | {ip: Device};
+type SheetId = 'manual' | 'govee' | 'member' | 'home' | {created: CreatedHerpstat & {name: string}};
 
 export default function Settings() {
   const [data, {refetch}] = createResource(homeId, fetchDevices);
@@ -37,12 +37,10 @@ export default function Settings() {
     setSheet(null);
   };
 
-  const addHerpstat = (name: string, host?: string) => api('/devices/herpstat', {body: {name, host: host || undefined}});
-
   const [sheet, setSheet] = createSignal<SheetId | null>(null);
-  const ipSheet = () => {
+  const createdSheet = () => {
     const s = sheet();
-    return typeof s === 'object' && s ? s.ip : undefined;
+    return typeof s === 'object' && s ? s.created : undefined;
   };
   const [menu, setMenu] = createSignal<{title: string; actions: Action[]} | null>(null);
 
@@ -51,11 +49,7 @@ export default function Settings() {
       title: d.name,
       actions: [
         ...(d.kind === 'herpstat'
-          ? [
-              ...(d.host ? [{label: 'Refresh Now', run: () => run(() => api(`/devices/${d.id}/refresh`, {method: 'POST'}))}] : []),
-              {label: 'Change IP Address', run: () => setSheet({ip: d})},
-              ...(d.uploadUrl ? [{label: 'Webhook', expand: () => <WebhookCells d={d} onRotated={refetch} onError={setError} />}] : []),
-            ]
+          ? [{label: 'Webhooks', expand: () => <WebhookCells d={d} onChange={() => void refetch()} onError={setError} />}]
           : []),
         {
           label: `Remove ${d.name}`,
@@ -130,8 +124,8 @@ export default function Settings() {
         }
         foot={
           <>
-            On each unit, open <b>Admin → Advanced Status Integration</b> and turn on <b>/RAWSTATUS</b>. Assign each output to a snake's basking bulb
-            or RHP.
+            On each unit, open <b>Admin → Show Advanced Status Integration Options</b> and paste its webhook URL and API key. Assign each output to a
+            snake's basking bulb or RHP.
           </>
         }
       >
@@ -148,7 +142,7 @@ export default function Settings() {
                   </span>
                 }
                 title={d.name}
-                detail={d.lastError ?? updated(d, d.host ?? 'Upload only')}
+                detail={d.lastSeenAt ? updated(d, d.model) : 'Waiting for first webhook'}
                 menuLabel={`${d.name} options`}
                 onMenu={isOwner() ? () => deviceMenu(d) : undefined}
               />
@@ -289,37 +283,34 @@ export default function Settings() {
         open={sheet() === 'manual'}
         title="Add Herpstat"
         onClose={() => setSheet(null)}
-        onSubmit={e => {
-          const name = formValue(e, 'name'),
-            host = formValue(e, 'host');
-          return submit(() => addHerpstat(name, host));
+        onSubmit={async e => {
+          const name = formValue(e, 'name');
+          const created = await api<CreatedHerpstat>('/devices/herpstat', {body: {name}});
+          void refetch();
+          setSheet({created: {...created, name}});
         }}
-        foot="Leave the IP blank if the server can't reach the unit; you'll get an upload URL instead."
+        foot="You'll get a webhook URL and API key to enter on the unit."
       >
         <label class="cell">
           <input name="name" required placeholder="Name, e.g. Rack A" autofocus />
         </label>
-        <label class="cell">
-          <input name="host" placeholder="IP address, e.g. 192.168.1.141" inputmode="decimal" />
-        </label>
       </FormSheet>
 
-      <Show when={ipSheet()}>
-        {d => (
-          <FormSheet
-            open
-            title="IP Address"
-            onClose={() => setSheet(null)}
-            onSubmit={e => {
-              const host = formValue(e, 'host') || null;
-              return submit(() => api(`/devices/${d().id}`, {method: 'PUT', body: {host}}));
-            }}
-            foot="Leave blank to receive uploads only."
-          >
-            <label class="cell">
-              <input name="host" value={d().host ?? ''} placeholder="192.168.1.141" inputmode="decimal" autofocus />
-            </label>
-          </FormSheet>
+      <Show when={createdSheet()}>
+        {c => (
+          <Sheet open title={c().name} onClose={() => setSheet(null)}>
+            <Section
+              foot={
+                <>
+                  On the Herpstat, open <b>Admin → Show Advanced Status Integration Options</b> and enter this URL and API key. You can find them
+                  again under the unit's <b>Webhooks</b> menu.
+                </>
+              }
+            >
+              <CopyCell label="Webhook URL" value={c().webhook.url} />
+              <CopyCell label="API Key" value={c().webhook.apiKey} />
+            </Section>
+          </Sheet>
         )}
       </Show>
 

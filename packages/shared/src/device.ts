@@ -4,16 +4,15 @@ import type {Snake} from './husbandry';
 export const DeviceKind = z.enum(['herpstat', 'govee']);
 export type DeviceKind = z.infer<typeof DeviceKind>;
 
-const Host = z
-  .string()
-  .regex(/^[A-Za-z0-9.-]+(:\d+)?$/, 'IP or hostname, e.g. 192.168.1.141')
-  .max(100);
+export const WebhookProviderName = z.enum(['herpstat']);
+export type WebhookProviderName = z.infer<typeof WebhookProviderName>;
+
 const DeviceName = z.string().min(1).max(80);
 
-export const CreateHerpstatInput = z.object({name: DeviceName, host: Host.optional()});
+export const CreateHerpstatInput = z.object({name: DeviceName});
 export type CreateHerpstatInput = z.infer<typeof CreateHerpstatInput>;
 
-export const UpdateDeviceInput = z.object({name: DeviceName.optional(), host: Host.nullable().optional()});
+export const UpdateDeviceInput = z.object({name: DeviceName});
 export type UpdateDeviceInput = z.infer<typeof UpdateDeviceInput>;
 
 export const SetGoveeKeyInput = z.object({apiKey: z.string().min(10).max(200), email: z.string().email().max(200)});
@@ -55,11 +54,9 @@ export interface Device {
   model: string | null;
   externalId: string | null;
   lastSeenAt: string | null;
-  host: string | null;
   firmware: string | null;
   lastError: string | null;
-  uploadUrl?: string;
-  apiKey?: string;
+  webhooks?: Webhook[];
   channels: DeviceChannel[];
 }
 
@@ -78,7 +75,16 @@ export interface DeviceList {
   snakes: LinkableSnake[];
 }
 
-export interface UploadCredentials {
-  uploadUrl: string;
+export interface Webhook {
+  id: string;
+  provider: WebhookProviderName;
+  url: string;
   apiKey: string;
+  createdAt: string;
+  lastReceivedAt: string | null;
+}
+
+export interface CreatedHerpstat {
+  id: string;
+  webhook: Webhook;
 }
