@@ -17,6 +17,10 @@ export const HERPSTAT_SCAN_SUBNETS = (process.env.HERPSTAT_SCAN_SUBNETS ?? '')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 export const CORS_ORIGIN = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
 
 if (SECRET_KEY.length < 32) throw new Error('SECRET_KEY must be at least 32 characters');
+if (IS_PRODUCTION && [JWT_SECRET, SECRET_KEY].some(v => v.startsWith('change-me'))) {
+  throw new Error('JWT_SECRET and SECRET_KEY must be changed from the .env.example placeholders in production');
+}

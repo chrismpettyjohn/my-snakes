@@ -9,6 +9,8 @@
     "dev": "bun run --filter '*' dev",
     "dev:api": "bun run --filter api dev",
     "dev:web": "bun run --filter web dev",
+    "build": "bun run --filter web build",
+    "start": "bun run --filter api start",
     "dev:start": "pm2 start \"bun run dev:api\" --name snake-api && pm2 start \"bun run dev:web\" --name snake-web",
     "dev:stop": "pm2 delete snake-api snake-web",
     "typecheck": "bun run --filter '*' typecheck",

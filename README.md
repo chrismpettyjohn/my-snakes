@@ -15,23 +15,37 @@ packages/shared  zod schemas + types shared by both
 ## Tenancy
 A **home** ("collection") is the ownership boundary. Users belong to homes as `owner` or `member`. Every query is scoped through `AccessService`.
 
-## Run it (Docker)
-```sh
-cp .env.example .env     # set JWT_SECRET, SECRET_KEY, POSTGRES_PASSWORD
-# VPS: SITE_ADDRESS=snakes.example.com and PUBLIC_URL=https://snakes.example.com (Caddy gets the TLS cert)
-docker compose up -d --build
-```
-- `web`: Caddy serves the SolidJS build and proxies `/api/*` to `api`
-- `api`: NestJS on Bun. Applies migrations and TimescaleDB setup on boot (`MIGRATE_ON_BOOT`)
-- `db`: TimescaleDB (Postgres 17). `readings` is a hypertable with compression after 2 days and
-  raw retention of `READINGS_RETENTION_DAYS`. The `readings_5m` continuous aggregate is kept forever.
+## Config
+Each app has its own `.env` (copy from `.env.example`, where every variable is documented):
+- `apps/api/.env`: database, secrets, `PORT`, public URLs, polling. Bun loads it on start.
+- `apps/web/.env`: `VITE_API_URL`, baked into the build.
 
-LAN polling of Herpstat `/RAWSTATUS` only works when the API can reach the units. In Docker, set
-`HERPSTAT_SCAN_SUBNETS=192.168.1` so network scans hit your LAN, not the container network.
+## Deploy
+```sh
+cp apps/api/.env.example apps/api/.env   # set NODE_ENV=production, secrets, PORT, URLs
+cp apps/web/.env.example apps/web/.env   # set VITE_API_URL to the API's public URL
+docker compose up -d                     # database only
+bun install
+bun run build                            # -> apps/web/dist
+bun run start                            # API on $PORT
+```
+- **API**: NestJS on Bun. Applies migrations and TimescaleDB setup on boot (`MIGRATE_ON_BOOT`). With
+  `NODE_ENV=production` it refuses to start with the placeholder `JWT_SECRET`/`SECRET_KEY`
+  (generate them with `openssl rand -hex 32`). Run it under any process manager (pm2, systemd).
+- **Web**: `apps/web/dist` is a static SPA. Serve it from any web server with a fallback to `index.html`
+  for client-side routes. `CORS_ORIGIN` in `apps/api/.env` must list the origin it's served from.
+- **DB**: TimescaleDB (Postgres 17) on `127.0.0.1:5433`. `POSTGRES_PASSWORD` in `apps/api/.env` must match
+  `DATABASE_URL`. `readings` is a hypertable with compression after 2 days and raw retention of
+  `READINGS_RETENTION_DAYS`. The `readings_5m` continuous aggregate is kept forever.
+
+LAN polling of Herpstat `/RAWSTATUS` only works when the API can reach the units (set
+`HERPSTAT_SCAN_SUBNETS=192.168.1` to scan a specific LAN).
 
 ## Dev
 ```sh
-docker compose up -d db        # TimescaleDB on :5433
+cp apps/api/.env.example apps/api/.env   # dev defaults work as-is
+cp apps/web/.env.example apps/web/.env
+docker compose up -d           # TimescaleDB on :5433
 bun install
 bun run db:migrate             # or just start the API (migrates on boot)
 bun run dev:api                # :3000
