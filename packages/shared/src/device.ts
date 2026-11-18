@@ -9,9 +9,6 @@ export type WebhookProviderName = z.infer<typeof WebhookProviderName>;
 
 const DeviceName = z.string().min(1).max(80);
 
-export const CreateHerpstatInput = z.object({name: DeviceName});
-export type CreateHerpstatInput = z.infer<typeof CreateHerpstatInput>;
-
 export const UpdateDeviceInput = z.object({name: DeviceName});
 export type UpdateDeviceInput = z.infer<typeof UpdateDeviceInput>;
 
@@ -56,7 +53,6 @@ export interface Device {
   lastSeenAt: string | null;
   firmware: string | null;
   lastError: string | null;
-  webhooks?: Webhook[];
   channels: DeviceChannel[];
 }
 
@@ -73,18 +69,4 @@ export interface DeviceList {
   govee: GoveeAccount;
   devices: Device[];
   snakes: LinkableSnake[];
-}
-
-export interface Webhook {
-  id: string;
-  provider: WebhookProviderName;
-  url: string;
-  apiKey: string;
-  createdAt: string;
-  lastReceivedAt: string | null;
-}
-
-export interface CreatedHerpstat {
-  id: string;
-  webhook: Webhook;
 }

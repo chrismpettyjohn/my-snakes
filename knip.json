@@ -4,6 +4,7 @@
   "workspaces": {
     "apps/api": {"entry": ["src/db/migrations/*.ts", "src/db/*.cli.ts"], "project": ["src/**/*.ts"]},
     "apps/web": {"project": ["src/**/*.{ts,tsx}"]},
-    "packages/shared": {"project": ["src/**/*.ts"]}
+    "packages/shared": {"project": ["src/**/*.ts"]},
+    "packages/lan-bridge": {"project": ["src/**/*.ts"]}
   }
 }

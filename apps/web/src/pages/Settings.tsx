@@ -4,19 +4,19 @@ import {api, logout, me} from '../lib/api';
 import {assignSensor, fetchDevices} from '../lib/device';
 import {DeviceHead} from '../components/setting/DeviceHead';
 import {ChannelCell} from '../components/setting/ChannelCell';
-import {WebhookCells} from '../components/setting/WebhookCells';
 import {createResource, createSignal, For, Show} from 'solid-js';
+import {BridgeSection} from '../components/setting/BridgeSection';
 import {CollectionTile, DeviceTile, Glyph, Icon, IconTile, TILE} from '../lib/icons';
+import {GOVEE_CHANNEL, type Device, type Member, type SensorRole} from '@snake/shared';
 import {currentHome, homeId, homes, isOwner, refetchHomes, selectHome} from '../lib/home';
-import {GOVEE_CHANNEL, type CreatedHerpstat, type Device, type Member, type SensorRole} from '@snake/shared';
-import {ActionSheet, Avatar, CopyCell, FormSheet, PageHead, Section, Sheet, formValue, type Action} from '../lib/ui';
+import {ActionSheet, Avatar, FormSheet, PageHead, Section, formValue, type Action} from '../lib/ui';
 
 const ONLINE_MS = 5 * 60_000;
 const GOVEE_ACCOUNT = 'govee-account';
 const online = (d: Device) => !!d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_MS;
 const updated = (d: Device, first: string | null) => [first, `updated ${ago(d.lastSeenAt)}`].filter(Boolean).join(' · ');
 
-type SheetId = 'manual' | 'govee' | 'member' | 'home' | {created: CreatedHerpstat & {name: string}};
+type SheetId = 'govee' | 'member' | 'home';
 
 export default function Settings() {
   const [data, {refetch}] = createResource(homeId, fetchDevices);
@@ -38,19 +38,12 @@ export default function Settings() {
   };
 
   const [sheet, setSheet] = createSignal<SheetId | null>(null);
-  const createdSheet = () => {
-    const s = sheet();
-    return typeof s === 'object' && s ? s.created : undefined;
-  };
   const [menu, setMenu] = createSignal<{title: string; actions: Action[]} | null>(null);
 
   const deviceMenu = (d: Device) =>
     setMenu({
       title: d.name,
       actions: [
-        ...(d.kind === 'herpstat'
-          ? [{label: 'Webhooks', expand: () => <WebhookCells d={d} onChange={() => void refetch()} onError={setError} />}]
-          : []),
         {
           label: `Remove ${d.name}`,
           danger: true,
@@ -122,12 +115,7 @@ export default function Settings() {
             Herpstat
           </span>
         }
-        foot={
-          <>
-            On each unit, open <b>Admin → Show Advanced Status Integration Options</b> and paste its webhook URL and API key. Assign each output to a
-            snake's basking bulb or RHP.
-          </>
-        }
+        foot={<>Units show up here once a bridge finds them. Assign each output to a snake's basking bulb or RHP.</>}
       >
         <For each={herpstats()}>
           {d => (
@@ -142,7 +130,7 @@ export default function Settings() {
                   </span>
                 }
                 title={d.name}
-                detail={d.lastSeenAt ? updated(d, d.model) : 'Waiting for first webhook'}
+                detail={d.lastSeenAt ? updated(d, d.model) : 'Waiting for a bridge to find it'}
                 menuLabel={`${d.name} options`}
                 onMenu={isOwner() ? () => deviceMenu(d) : undefined}
               />
@@ -152,15 +140,14 @@ export default function Settings() {
         </For>
         <Show when={!herpstats().length}>
           <div class="cell">
-            <span class="muted">No Herpstats yet</span>
+            <span class="muted">No Herpstats yet. Install a bridge to find them.</span>
           </div>
         </Show>
-        <Show when={isOwner()}>
-          <button class="cell action" onClick={() => setSheet('manual')}>
-            Add Herpstat…
-          </button>
-        </Show>
       </Section>
+
+      <Show when={isOwner()}>
+        <BridgeSection onChange={() => void refetch()} onError={setError} />
+      </Show>
 
       <Section
         collapse="setup-govee"
@@ -278,41 +265,6 @@ export default function Settings() {
       </Section>
 
       <ActionSheet open={!!menu()} onClose={() => setMenu(null)} title={menu()?.title} actions={menu()?.actions ?? []} />
-
-      <FormSheet
-        open={sheet() === 'manual'}
-        title="Add Herpstat"
-        onClose={() => setSheet(null)}
-        onSubmit={async e => {
-          const name = formValue(e, 'name');
-          const created = await api<CreatedHerpstat>('/devices/herpstat', {body: {name}});
-          void refetch();
-          setSheet({created: {...created, name}});
-        }}
-        foot="You'll get a webhook URL and API key to enter on the unit."
-      >
-        <label class="cell">
-          <input name="name" required placeholder="Name, e.g. Rack A" autofocus />
-        </label>
-      </FormSheet>
-
-      <Show when={createdSheet()}>
-        {c => (
-          <Sheet open title={c().name} onClose={() => setSheet(null)}>
-            <Section
-              foot={
-                <>
-                  On the Herpstat, open <b>Admin → Show Advanced Status Integration Options</b> and enter this URL and API key. You can find them
-                  again under the unit's <b>Webhooks</b> menu.
-                </>
-              }
-            >
-              <CopyCell label="Webhook URL" value={c().webhook.url} />
-              <CopyCell label="API Key" value={c().webhook.apiKey} />
-            </Section>
-          </Sheet>
-        )}
-      </Show>
 
       <FormSheet
         open={sheet() === 'govee'}

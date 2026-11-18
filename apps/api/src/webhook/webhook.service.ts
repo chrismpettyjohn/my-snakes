@@ -3,11 +3,11 @@ import {and, eq, sql} from 'drizzle-orm';
 import {timingSafeEqual} from 'node:crypto';
 import {randomToken} from '../common/crypto';
 import {DB, type Db, type Tx} from '../db/db.module';
+import type {WebhookProviderName} from '@snake/shared';
 import {DiscoveryService, Reflector} from '@nestjs/core';
 import {devices, rawUploads, webhooks} from '../db/schema';
 import {WEBHOOK_PROVIDER, type WebhookProvider} from './provider';
-import type {Webhook as WebhookDto, WebhookProviderName} from '@snake/shared';
-import {BadRequestException, Inject, Injectable, NotFoundException, UnauthorizedException, type OnModuleInit} from '@nestjs/common';
+import {BadRequestException, Inject, Injectable, UnauthorizedException, type OnModuleInit} from '@nestjs/common';
 
 const MAX_RAW_PER_DEVICE = 200;
 const MAX_RAW_BODY = 64_000;
@@ -17,7 +17,6 @@ type DeviceRow = typeof devices.$inferSelect;
 type WebhookRow = typeof webhooks.$inferSelect;
 
 export interface Delivery {
-  userId: string;
   webhookId: string;
   apiKey: string;
   body: string;
@@ -25,14 +24,7 @@ export interface Delivery {
   headers: Record<string, unknown>;
 }
 
-export const toWebhook = (w: WebhookRow): WebhookDto => ({
-  id: w.id,
-  provider: w.provider,
-  url: `${API_URL.replace(/\/$/, '')}/webhook/${w.userId}/${w.id}`,
-  apiKey: w.apiKey,
-  createdAt: w.createdAt.toISOString(),
-  lastReceivedAt: w.lastReceivedAt?.toISOString() ?? null,
-});
+export const toWebhook = (w: WebhookRow) => ({url: `${API_URL.replace(/\/$/, '')}/webhook/${w.id}`, apiKey: w.apiKey});
 
 const sameKey = (a: string, b: string) => {
   const x = Buffer.from(a),
@@ -65,43 +57,19 @@ export class WebhookService implements OnModuleInit {
     throw new BadRequestException(`${d.kind} devices don't support webhooks`);
   }
 
-  async list(d: DeviceRow): Promise<WebhookDto[]> {
-    this.providerFor(d);
-    const rows = await this.db.select().from(webhooks).where(eq(webhooks.deviceId, d.id)).orderBy(webhooks.createdAt);
-    return rows.map(toWebhook);
-  }
-
-  async create(d: DeviceRow, tx: Db | Tx = this.db): Promise<WebhookDto> {
+  async create(d: DeviceRow, tx: Db | Tx = this.db) {
     const provider = this.providerFor(d);
     const [w] = await tx.insert(webhooks).values({userId: d.ownerId, deviceId: d.id, provider, apiKey: randomToken()}).returning();
     return toWebhook(w!);
   }
 
-  async rotateKey(d: DeviceRow, webhookId: string): Promise<WebhookDto> {
-    const [w] = await this.db
-      .update(webhooks)
-      .set({apiKey: randomToken()})
-      .where(and(eq(webhooks.id, webhookId), eq(webhooks.deviceId, d.id)))
-      .returning();
-    if (!w) throw new NotFoundException('Webhook not found');
-    return toWebhook(w);
-  }
-
-  async remove(d: DeviceRow, webhookId: string) {
-    const gone = await this.db
-      .delete(webhooks)
-      .where(and(eq(webhooks.id, webhookId), eq(webhooks.deviceId, d.id)))
-      .returning({id: webhooks.id});
-    if (!gone.length) throw new NotFoundException('Webhook not found');
-  }
-
   async receive(u: Delivery) {
-    if (!UUID.test(u.userId) || !UUID.test(u.webhookId)) throw new UnauthorizedException('Unknown webhook');
+    if (!UUID.test(u.webhookId)) throw new UnauthorizedException('Unknown webhook');
     const [row] = await this.db
       .select({webhook: webhooks, device: devices})
       .from(webhooks)
       .innerJoin(devices, and(eq(devices.id, webhooks.deviceId), eq(devices.ownerId, webhooks.userId)))
-      .where(and(eq(webhooks.id, u.webhookId), eq(webhooks.userId, u.userId)));
+      .where(eq(webhooks.id, u.webhookId));
     if (!row || !sameKey(u.apiKey, row.webhook.apiKey)) throw new UnauthorizedException('Unknown webhook');
     const {device, webhook} = row;
     const provider = this.providers.get(webhook.provider);

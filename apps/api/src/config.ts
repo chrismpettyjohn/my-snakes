@@ -6,7 +6,9 @@ function required(name: string): string {
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 export const PORT = Number(process.env.PORT ?? 3000);
+export const HOST = IS_PRODUCTION ? '0.0.0.0' : '127.0.0.1';
 export const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+export const BRIDGE_PATH = process.env.BRIDGE_PATH?.replace(/\/$/, '') || undefined;
 export const WEB_URL = (process.env.WEB_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 
 const POSTGRES_HOST = process.env.POSTGRES_HOST ?? 'localhost';

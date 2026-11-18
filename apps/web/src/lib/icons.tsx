@@ -136,6 +136,7 @@ export const TILE = {
   govee: 'linear-gradient(135deg,#7ad7ff,#32ade6)',
   people: 'linear-gradient(135deg,#5de07a,#28b446)',
   home: 'linear-gradient(135deg,#7d7aff,#5856d6)',
+  bridge: 'linear-gradient(135deg,#a1a1a6,#636366)',
 } as const;
 
 const DEVICE_GLYPH: Record<DeviceKind, () => JSX.Element> = {herpstat: Glyph.thermostat, govee: Glyph.droplet};

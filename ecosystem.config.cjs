@@ -66,7 +66,7 @@ const services = [
     name: 'snake-web',
     cwd: join(root, 'apps', 'web'),
     script: bun,
-    args: ['--bun', 'run', 'vite', '--host'],
+    args: ['--bun', 'run', 'vite'],
     interpreter: 'none',
   },
 ];

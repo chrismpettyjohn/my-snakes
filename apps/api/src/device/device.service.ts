@@ -1,15 +1,13 @@
 import {DB, type Db} from '../db/db.module';
 import {and, eq, inArray} from 'drizzle-orm';
 import {GoveeService} from '../govee/govee.service';
-import {toWebhook} from '../webhook/webhook.service';
 import {ReadingService} from '../reading/reading.service';
 import {BadRequestException, Inject, Injectable} from '@nestjs/common';
-import {devices, homeMembers, homes, snakeSensors, snakes, webhooks} from '../db/schema';
+import {devices, homeMembers, homes, snakeSensors, snakes} from '../db/schema';
 import {GOVEE_CHANNEL, type AssignSensorInput, type Device, type DeviceChannel, type DeviceList, type UpdateDeviceInput} from '@snake/shared';
 
 type DeviceRow = typeof devices.$inferSelect;
 type Assignment = typeof snakeSensors.$inferSelect;
-type WebhookRow = typeof webhooks.$inferSelect;
 
 @Injectable()
 export class DeviceService {
@@ -22,11 +20,9 @@ export class DeviceService {
   async list(ownerId: string, viewerId: string): Promise<DeviceList> {
     const devs = await this.db.select().from(devices).where(eq(devices.ownerId, ownerId)).orderBy(devices.kind, devices.name);
     const ids = devs.map(d => d.id);
-    const isOwner = ownerId === viewerId;
-    const [seen, assigns, hooks, govee, linkable] = await Promise.all([
+    const [seen, assigns, govee, linkable] = await Promise.all([
       this.reading.channelsSeen(ids),
       ids.length ? this.db.select().from(snakeSensors).where(inArray(snakeSensors.deviceId, ids)) : [],
-      ids.length && isOwner ? this.db.select().from(webhooks).where(inArray(webhooks.deviceId, ids)).orderBy(webhooks.createdAt) : [],
       this.govee.account(ownerId),
       this.linkableSnakes(ownerId, viewerId),
     ]);
@@ -37,7 +33,6 @@ export class DeviceService {
           d,
           seen.filter(c => c.deviceId === d.id).map(c => c.channel),
           assigns.filter(a => a.deviceId === d.id),
-          isOwner && d.kind === 'herpstat' ? hooks.filter(w => w.deviceId === d.id) : undefined,
         ),
       ),
       snakes: linkable.map(({s, collection}) => ({...s, collection})),
@@ -88,7 +83,7 @@ export class DeviceService {
   }
 }
 
-function toDevice(d: DeviceRow, seen: string[], assigns: Assignment[], hooks?: WebhookRow[]): Device {
+function toDevice(d: DeviceRow, seen: string[], assigns: Assignment[]): Device {
   const channels = [...new Set([...(d.kind === 'govee' ? [GOVEE_CHANNEL] : []), ...seen, ...assigns.map(a => a.channel)])]
     .sort()
     .map((channel): DeviceChannel => {
@@ -104,7 +99,6 @@ function toDevice(d: DeviceRow, seen: string[], assigns: Assignment[], hooks?: W
     lastSeenAt: d.lastSeenAt?.toISOString() ?? null,
     firmware: d.firmware,
     lastError: d.lastError,
-    webhooks: hooks?.map(toWebhook),
     channels,
   };
 }

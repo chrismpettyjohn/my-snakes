@@ -124,6 +124,21 @@ export const devices = pgTable(
   t => [index('devices_owner_idx').on(t.ownerId), uniqueIndex('devices_owner_kind_ext_idx').on(t.ownerId, t.kind, t.externalId)],
 );
 
+export const bridges = pgTable(
+  'bridges',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, {onDelete: 'cascade'}),
+    tokenHash: text('token_hash').notNull().unique(),
+    hostname: text('hostname'),
+    lastSeenAt: timestamp('last_seen_at', {withTimezone: true}),
+    createdAt: createdAt(),
+  },
+  t => [index('bridges_user_idx').on(t.userId)],
+);
+
 export const webhooks = pgTable(
   'webhooks',
   {
