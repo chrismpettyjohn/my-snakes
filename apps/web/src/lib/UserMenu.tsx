@@ -19,13 +19,13 @@ export function UserMenu() {
       {u => (
         <div class="user-menu" ref={root}>
           <button type="button" class="user-btn" aria-haspopup="menu" aria-expanded={open()} onClick={() => setOpen(!open())}>
-            <Avatar name={u().displayName} size={28} />
-            <span class="user-name">{u().displayName}</span>
+            <Avatar name={u().displayName} src={u().avatarUrl} size={28} />
+            <span class="user-name">{u().username ?? u().displayName}</span>
           </button>
           <Show when={open()}>
             <div class="user-dropdown" role="menu">
               <div class="user-head">
-                <span class="title">{u().displayName}</span>
+                <span class="title">{u().username ?? u().displayName}</span>
                 <span class="detail">{u().email}</span>
               </div>
               <Show when={(homes()?.length ?? 0) > 1}>

@@ -1,76 +1,38 @@
-import {refetchHomes} from '../lib/home';
-import {auth, setToken} from '../lib/api';
+import {Show} from 'solid-js';
+import {api} from '../lib/api';
+import {storage} from '../lib/storage';
 import {createAction} from '../lib/action';
-import {createSignal, Show} from 'solid-js';
-import {useNavigate} from '@solidjs/router';
+import {useSearchParams} from '@solidjs/router';
+
+export const OAUTH_STATE_KEY = 'snake.oauthState';
 
 export default function Login() {
-  const nav = useNavigate();
-  const [mode, setMode] = createSignal<'login' | 'register'>('login');
-  const {busy, error, setError, run} = createAction();
-  const login = () => mode() === 'login';
+  const [params] = useSearchParams<{error?: string}>();
+  const {busy, error, run} = createAction();
 
-  function submit(e: SubmitEvent) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget as HTMLFormElement);
-    const email = String(f.get('email')),
-      password = String(f.get('password')),
-      displayName = String(f.get('displayName'));
+  function signIn() {
     void run(async () => {
-      const r = login() ? await auth.login(email, password) : await auth.register(email, password, displayName);
-      setToken(r.token);
-      await refetchHomes();
-      nav('/');
+      const state = crypto.randomUUID();
+      storage.set(OAUTH_STATE_KEY, state);
+      const {url} = await api<{url: string}>(`/auth/discord/url?state=${state}`);
+      location.assign(url);
+      await new Promise(() => {});
     });
   }
 
   return (
     <div class="auth">
-      <form class="auth-card" onSubmit={submit}>
+      <div class="auth-card">
         <img class="login-avatar login-logo" src="/logo.png" alt="MySnakes" />
         <h1>MySnakes</h1>
-        <p class="lede">{login() ? 'Sign in to check on your snakes.' : 'Create an account to get started.'}</p>
-        <div class="group">
-          <Show when={!login()}>
-            <label class="cell">
-              <input name="displayName" required maxLength={60} placeholder="Name" autocomplete="name" />
-            </label>
-          </Show>
-          <label class="cell">
-            <input name="email" type="email" required placeholder="Email" autocomplete="email" />
-          </label>
-          <label class="cell">
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={login() ? 1 : 8}
-              placeholder="Password"
-              autocomplete={login() ? 'current-password' : 'new-password'}
-            />
-          </label>
-        </div>
-        <Show when={error()}>
-          <p class="error" style={{'text-align': 'center'}}>
-            {error()}
-          </p>
+        <p class="lede">Sign in to check on your snakes.</p>
+        <Show when={error() || params.error}>
+          <p class="error">{error() || params.error}</p>
         </Show>
-        <button class="btn block" disabled={busy()}>
-          {login() ? 'Sign In' : 'Create Account'}
+        <button class="btn block discord" disabled={busy()} onClick={signIn}>
+          Continue with Discord
         </button>
-        <p class="switch">
-          {login() ? 'New here? ' : 'Have an account? '}
-          <button
-            type="button"
-            onClick={() => {
-              setError('');
-              setMode(login() ? 'register' : 'login');
-            }}
-          >
-            {login() ? 'Create an account' : 'Sign in'}
-          </button>
-        </p>
-      </form>
+      </div>
     </div>
   );
 }

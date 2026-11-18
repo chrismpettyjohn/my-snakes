@@ -160,7 +160,7 @@ export function CopyCell(p: {label: string; value: string; extra?: JSX.Element})
   );
 }
 
-export function Avatar(p: {name: string; size?: number}) {
+export function Avatar(p: {name: string; src?: string | null; size?: number}) {
   const hue = () => [...p.name].reduce((h, ch) => h + ch.charCodeAt(0) * 37, 0) % 360;
   return (
     <span
@@ -170,7 +170,7 @@ export function Avatar(p: {name: string; size?: number}) {
         ...(p.size ? {width: `${p.size}px`, height: `${p.size}px`, 'font-size': `${Math.round(p.size * 0.44)}px`} : {}),
       }}
     >
-      {p.name.slice(0, 1).toUpperCase()}
+      {p.src ? <img src={p.src} alt="" /> : p.name.slice(0, 1).toUpperCase()}
     </span>
   );
 }

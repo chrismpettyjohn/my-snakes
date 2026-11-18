@@ -1,7 +1,7 @@
 import {API_URL} from '../config';
 import {storage} from './storage';
+import type {User} from '@snake/shared';
 import {createResource, createSignal} from 'solid-js';
-import type {AuthResponse, User} from '@snake/shared';
 
 const TOKEN_KEY = 'snake.token';
 
@@ -43,10 +43,4 @@ export async function api<T = unknown>(path: string, init: {method?: string; bod
   return data as T;
 }
 
-export const auth = {
-  me: () => api<User>('/auth/me'),
-  login: (email: string, password: string) => api<AuthResponse>('/auth/login', {body: {email, password}}),
-  register: (email: string, password: string, displayName: string) => api<AuthResponse>('/auth/register', {body: {email, password, displayName}}),
-};
-
-export const [me] = createResource(token, () => auth.me());
+export const [me] = createResource(token, () => api<User>('/auth/me'));

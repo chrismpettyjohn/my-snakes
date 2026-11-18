@@ -5,11 +5,11 @@ import {assignSensor, fetchDevices} from '../lib/device';
 import {DeviceHead} from '../components/setting/DeviceHead';
 import {ChannelCell} from '../components/setting/ChannelCell';
 import {WebhookCells} from '../components/setting/WebhookCells';
-import {createResource, createSignal, For, onMount, Show} from 'solid-js';
+import {createResource, createSignal, For, Show} from 'solid-js';
 import {CollectionTile, DeviceTile, Glyph, Icon, IconTile, TILE} from '../lib/icons';
+import {GOVEE_CHANNEL, type Device, type Member, type SensorRole} from '@snake/shared';
 import {currentHome, homeId, homes, isOwner, refetchHomes, selectHome} from '../lib/home';
 import {ActionSheet, Avatar, FormSheet, PageHead, Section, formValue, type Action} from '../lib/ui';
-import {GOVEE_CHANNEL, type Device, type FoundHerpstat, type Member, type SensorRole} from '@snake/shared';
 
 const ONLINE_MS = 5 * 60_000;
 const GOVEE_ACCOUNT = 'govee-account';
@@ -37,20 +37,6 @@ export default function Settings() {
     setSheet(null);
   };
 
-  const [found, setFound] = createSignal<FoundHerpstat[]>([]);
-  const [scanning, setScanning] = createSignal(false);
-  const scan = async () => {
-    setScanning(true);
-    try {
-      setFound(await api<FoundHerpstat[]>('/devices/herpstat/discover', {method: 'POST'}));
-    } catch {
-    } finally {
-      setScanning(false);
-    }
-  };
-  onMount(() => {
-    if (isOwner()) void scan();
-  });
   const addHerpstat = (name: string, host?: string) => api('/devices/herpstat', {body: {name, host: host || undefined}});
 
   const [sheet, setSheet] = createSignal<SheetId | null>(null);
@@ -124,7 +110,7 @@ export default function Settings() {
         {u => (
           <Section title="Account">
             <div class="cell">
-              <Avatar name={u().displayName} />
+              <Avatar name={u().displayName} src={u().avatarUrl} />
               <span class="grow">
                 <span class="title">{u().displayName}</span>
                 <span class="detail">{u().email}</span>
@@ -137,15 +123,10 @@ export default function Settings() {
       <Section
         collapse="setup-herpstat"
         title={
-          <>
-            <span class="st">
-              <DeviceTile kind="herpstat" />
-              Herpstat
-            </span>
-            <Show when={scanning()}>
-              <span>Searching…</span>
-            </Show>
-          </>
+          <span class="st">
+            <DeviceTile kind="herpstat" />
+            Herpstat
+          </span>
         }
         foot={
           <>
@@ -175,41 +156,14 @@ export default function Settings() {
             </>
           )}
         </For>
-        <For each={found()}>
-          {f => (
-            <div class="cell">
-              <IconTile color={TILE.herpstat}>{Glyph.wave()}</IconTile>
-              <span class="grow">
-                <span class="title">{f.name}</span>
-                <span class="detail">Found on your network · {f.host}</span>
-              </span>
-              <button
-                class="btn"
-                disabled={busy()}
-                onClick={() =>
-                  run(async () => {
-                    await addHerpstat(f.name, f.host);
-                    setFound(found().filter(x => x !== f));
-                  })
-                }
-              >
-                Add
-              </button>
-            </div>
-          )}
-        </For>
-        <Show when={!herpstats().length && !found().length}>
-          <div class="cell scanning">
-            <span class={`radar ${scanning() ? 'on' : ''}`}>{Glyph.wave()}</span>
-            <span class="grow muted">{scanning() ? 'Looking for Herpstats on your network…' : 'No Herpstats found'}</span>
+        <Show when={!herpstats().length}>
+          <div class="cell">
+            <span class="muted">No Herpstats yet</span>
           </div>
         </Show>
         <Show when={isOwner()}>
-          <button class="cell action" onClick={scan} disabled={scanning()}>
-            Search Again
-          </button>
           <button class="cell action" onClick={() => setSheet('manual')}>
-            Add by IP Address…
+            Add Herpstat…
           </button>
         </Show>
       </Section>
@@ -283,10 +237,10 @@ export default function Settings() {
         <For each={members()}>
           {m => (
             <div class="cell">
-              <Avatar name={m.displayName} />
+              <Avatar name={m.displayName} src={m.avatarUrl} />
               <span class="grow">
                 <span class="title">{m.displayName}</span>
-                <span class="detail">{m.email}</span>
+                <span class="detail">{m.username && `@${m.username}`}</span>
               </span>
               <span class="value" style={{'text-transform': 'capitalize', 'font-size': '15px'}}>
                 {m.role}
@@ -396,14 +350,23 @@ export default function Settings() {
         title="Add Person"
         onClose={() => setSheet(null)}
         onSubmit={async e => {
-          await api(`/homes/${homeId()}/members`, {body: {email: formValue(e, 'email')}});
+          await api(`/homes/${homeId()}/members`, {body: {username: formValue(e, 'username')}});
           void refetchMembers();
           setSheet(null);
         }}
-        foot="They need a MySnakes account first."
+        foot="They need to have signed in to MySnakes with Discord first."
       >
         <label class="cell">
-          <input name="email" type="email" required placeholder="Email" autofocus />
+          <input
+            name="username"
+            required
+            minLength={2}
+            maxLength={33}
+            placeholder="Discord username"
+            autocapitalize="off"
+            autocomplete="off"
+            autofocus
+          />
         </label>
       </FormSheet>
 

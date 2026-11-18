@@ -1,12 +1,13 @@
 import {token} from './lib/api';
 import Login from './pages/Login';
 import {homeId} from './lib/home';
-import './styles.css';
 import Snakes from './pages/Snakes';
+import './styles.css';
 import {render} from 'solid-js/web';
 import Settings from './pages/Settings';
 import {Show, type JSX} from 'solid-js';
 import {UserMenu} from './lib/UserMenu';
+import AuthCallback from './pages/AuthCallback';
 import {Router, Route, A, Navigate, type RouteSectionProps} from '@solidjs/router';
 
 function Layout(props: RouteSectionProps) {
@@ -36,6 +37,7 @@ render(
   () => (
     <Router>
       <Route path="/login" component={Login} />
+      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/" component={Layout}>
         <Route path="/" component={Snakes} />
         <Route path="/setup" component={() => <Navigate href="/settings" />} />
