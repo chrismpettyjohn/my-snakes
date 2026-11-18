@@ -132,6 +132,26 @@ export function Segmented<T extends string>(p: {value: T; options: readonly T[];
   );
 }
 
+async function copyText(text: string, host: HTMLElement): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {}
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.readOnly = true;
+  area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+  host.append(area);
+  area.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+  }
+}
+
 export function CopyCell(p: {label: string; value: string; extra?: JSX.Element}) {
   const [done, setDone] = createSignal(false);
   return (
@@ -139,12 +159,11 @@ export function CopyCell(p: {label: string; value: string; extra?: JSX.Element})
       <button
         type="button"
         class="copy-hit"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(p.value);
+        onClick={async e => {
+          if (await copyText(p.value, e.currentTarget)) {
             setDone(true);
             setTimeout(() => setDone(false), 1500);
-          } catch {}
+          }
         }}
       >
         <span class="grow">

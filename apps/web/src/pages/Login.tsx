@@ -12,7 +12,7 @@ export default function Login() {
 
   function signIn() {
     void run(async () => {
-      const state = crypto.randomUUID();
+      const state = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
       storage.set(OAUTH_STATE_KEY, state);
       const {url} = await api<{url: string}>(`/auth/discord/url?state=${state}`);
       location.assign(url);
